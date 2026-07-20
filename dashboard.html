@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coordenadoria de Trabalho Social — Painel de Dados</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #111111;
+    --ink-2: #5A5A57;
+    --ink-3: #8B8A85;
+    --line: #E4E1DA;
+    --line-soft: #F0EDE5;
+    --accent: #1B4332;
+    --accent-2: #2D6A4F;
+    --accent-soft: #DDE8E1;
+    --warn: #E76F51;
+    --warn-soft: #FDF0EC;
+    --gold: #C9A227;
+    --gold-soft: #FBF3D9;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+  /* ============ CABEÇALHO INSTITUCIONAL ============ */
+  .institutional-header { border-bottom: 1px solid var(--line); background: var(--surface); }
+  .institutional-header .inner { max-width: 1400px; margin: 0 auto; padding: 20px 32px 22px; display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+  .brand-block .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 6px; }
+  .brand-block .org { font-family: var(--font-display); font-size: 22px; font-weight: 500; line-height: 1.15; letter-spacing: -0.01em; color: var(--ink); }
+  .brand-block .dept { font-family: var(--font-body); font-size: 14px; color: var(--ink-2); margin-top: 2px; }
+  .meta-block { text-align: right; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+  .meta-block .updated { color: var(--ink); margin-top: 4px; font-size: 12px; }
+
+  main { max-width: 1400px; margin: 0 auto; padding: 40px 32px 80px; }
+
+  /* ============ UPLOAD ============ */
+  .upload-zone { background: var(--surface); border: 1px dashed var(--line); border-radius: 4px; padding: 80px 32px; text-align: center; transition: all 0.2s ease; cursor: pointer; }
+  .upload-zone:hover, .upload-zone.dragging { border-color: var(--accent); background: var(--accent-soft); }
+  .upload-zone .rule { width: 40px; height: 1px; background: var(--ink-3); margin: 0 auto 24px; }
+  .upload-zone h2 { font-family: var(--font-display); font-size: 28px; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 12px; }
+  .upload-zone p { color: var(--ink-2); max-width: 480px; margin: 0 auto 28px; }
+  .upload-zone .cta { display: inline-block; background: var(--ink); color: var(--surface); padding: 12px 28px; font-size: 14px; font-weight: 500; letter-spacing: 0.02em; border: none; border-radius: 2px; cursor: pointer; transition: background 0.15s; }
+  .upload-zone .cta:hover { background: var(--accent); }
+  .upload-zone .hint { margin-top: 20px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+
+  /* ============ FILE BAR ============ */
+  .file-bar { display: none; justify-content: space-between; align-items: center; padding: 14px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; margin-bottom: 24px; gap: 16px; flex-wrap: wrap; }
+  .file-bar.active { display: flex; }
+  .file-info { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink-2); flex: 1; min-width: 200px; }
+  .file-info strong { color: var(--ink); font-weight: 500; }
+  .file-info .sep { color: var(--line); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { background: transparent; border: 1px solid var(--line); color: var(--ink); padding: 8px 16px; font-family: var(--font-body); font-size: 13px; font-weight: 500; border-radius: 2px; cursor: pointer; transition: all 0.15s; }
+  .btn:hover { border-color: var(--ink); background: var(--surface); }
+  .btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  .btn.primary:hover { background: var(--accent); border-color: var(--accent); }
+
+  /* ============ ALERTA LGPD ============ */
+  .lgpd-alert { display: none; background: var(--warn-soft); border-left: 3px solid var(--warn); padding: 14px 18px; margin-bottom: 24px; font-size: 13px; line-height: 1.5; color: var(--ink); }
+  .lgpd-alert.active { display: block; }
+  .lgpd-alert strong { font-weight: 600; }
+
+  /* ============ SEÇÃO ============ */
+  section { margin-bottom: 48px; display: none; }
+  section.active { display: block; }
+  .section-heading { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--line); gap: 12px; flex-wrap: wrap; }
+  .section-heading h3 { font-family: var(--font-display); font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
+  .section-heading .num { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
+
+  /* ============ KPIs ============ */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .kpi { background: var(--surface); padding: 22px 22px; display: flex; flex-direction: column; justify-content: space-between; min-height: 130px; position: relative; }
+  .kpi.accent::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--accent); }
+  .kpi.gold::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--gold); }
+  .kpi.warn::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--warn); }
+  .kpi .label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 10px; }
+  .kpi .value { font-family: var(--font-mono); font-size: 32px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; color: var(--ink); }
+  .kpi .sublabel { font-size: 12px; color: var(--ink-3); margin-top: 8px; }
+  .kpi .pct { font-family: var(--font-mono); font-size: 12px; color: var(--accent-2); font-weight: 500; margin-top: 4px; }
+
+  /* ============ BARRAS DE DISTRIBUIÇÃO ============ */
+  .dist-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; }
+  .distribution { background: var(--surface); border: 1px solid var(--line); padding: 20px 22px; }
+  .distribution-title { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 16px; }
+  .dist-row { display: grid; grid-template-columns: 140px 1fr 100px; gap: 14px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+  .dist-row:last-child { border-bottom: none; }
+  .dist-row .cat { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dist-row .bar-wrap { background: var(--line-soft); height: 10px; border-radius: 1px; overflow: hidden; }
+  .dist-row .bar { height: 100%; background: var(--accent); transition: width 0.4s ease; }
+  .dist-row .count { font-family: var(--font-mono); font-size: 12px; color: var(--ink); text-align: right; font-weight: 500; }
+
+  /* ============ FILTROS ============ */
+  .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; padding: 18px 20px; background: var(--surface); border: 1px solid var(--line); margin-bottom: 16px; }
+  .filter-item label { display: block; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 6px; }
+  .filter-item select, .filter-item input { width: 100%; padding: 8px 10px; font-family: var(--font-body); font-size: 13px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 2px; outline: none; transition: border-color 0.15s; }
+  .filter-item select:focus, .filter-item input:focus { border-color: var(--accent); }
+
+  /* ============ TABELA ============ */
+  .table-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 16px; flex-wrap: wrap; }
+  .search-box { flex: 1; min-width: 240px; max-width: 400px; position: relative; }
+  .search-box input { width: 100%; padding: 10px 14px 10px 36px; border: 1px solid var(--line); background: var(--surface); font-family: var(--font-body); font-size: 13px; border-radius: 2px; outline: none; transition: border-color 0.15s; }
+  .search-box input:focus { border-color: var(--accent); }
+  .search-box::before { content: "⌕"; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-size: 16px; }
+  .table-info { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); max-height: 700px; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: var(--surface); border-bottom: 1px solid var(--ink); padding: 12px 12px; text-align: left; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); font-weight: 500; cursor: pointer; user-select: none; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+  thead th:hover { background: var(--line-soft); }
+  thead th .sort-ind { display: inline-block; margin-left: 4px; color: var(--ink-3); font-size: 9px; }
+  thead th.sorted .sort-ind { color: var(--accent); }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--line-soft); color: var(--ink); vertical-align: top; font-size: 12.5px; }
+  tbody td.numeric { font-family: var(--font-mono); text-align: right; font-size: 12px; }
+  tbody td.mono { font-family: var(--font-mono); font-size: 11.5px; }
+  tbody tr:hover td { background: var(--line-soft); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* Progress bar in table */
+  .progress-cell { min-width: 140px; }
+  .progress-wrap { display: flex; align-items: center; gap: 8px; }
+  .progress-track { flex: 1; height: 6px; background: var(--line-soft); border-radius: 1px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); }
+  .progress-fill.med { background: var(--gold); }
+  .progress-fill.low { background: var(--warn); }
+  .progress-label { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); min-width: 38px; text-align: right; }
+
+  /* Status badges */
+  .badge { display: inline-block; padding: 3px 8px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; border-radius: 2px; font-weight: 500; }
+  .badge.aprovado { background: var(--accent-soft); color: var(--accent); }
+  .badge.contrato { background: var(--accent); color: var(--surface); }
+  .badge.pendente { background: var(--warn-soft); color: var(--warn); }
+  .badge.selecionado { background: var(--gold-soft); color: #8B7215; }
+  .badge.termo { background: #E8EEF7; color: #2C5282; }
+  .badge.desistencia { background: var(--line-soft); color: var(--ink-3); }
+  .badge.default { background: var(--line-soft); color: var(--ink-2); }
+
+  /* ============ PAGINAÇÃO ============ */
+  .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding: 12px 0; gap: 12px; flex-wrap: wrap; }
+  .page-controls { display: flex; gap: 4px; align-items: center; }
+  .page-btn { padding: 6px 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-family: var(--font-mono); font-size: 12px; cursor: pointer; border-radius: 2px; transition: all 0.15s; }
+  .page-btn:hover:not(:disabled) { border-color: var(--ink); }
+  .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .page-btn.current { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  .page-info { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+
+  /* ============ MENSAGENS ============ */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--ink-3); font-family: var(--font-body); font-size: 14px; }
+  .error { background: var(--warn-soft); border-left: 3px solid var(--warn); padding: 16px 20px; color: var(--ink); margin-bottom: 20px; font-size: 14px; }
+
+  /* ============ RESPONSIVO ============ */
+  @media (max-width: 720px) {
+    main { padding: 24px 16px 60px; }
+    .institutional-header .inner { padding: 16px 20px; }
+    .brand-block .org { font-size: 18px; }
+    .meta-block { text-align: left; }
+    .upload-zone { padding: 48px 20px; }
+    .upload-zone h2 { font-size: 22px; }
+    .kpi .value { font-size: 26px; }
+    .dist-row { grid-template-columns: 100px 1fr 70px; gap: 10px; }
+    thead th, tbody td { padding: 8px 8px; font-size: 11.5px; }
+  }
+
+  /* ============ PRINT ============ */
+  @media print {
+    body { background: white; }
+    .file-bar, .upload-zone, .actions, .pagination, .filters, .table-controls .search-box, .lgpd-alert { display: none !important; }
+    .institutional-header { border-bottom: 2px solid var(--ink); }
+    main { padding: 20px 0; max-width: 100%; }
+    section { page-break-inside: avoid; }
+    .table-wrap { border: 1px solid var(--ink); overflow: visible; max-height: none; }
+    thead th { position: static; }
+  }
+</style>
+</head>
+<body>
+
+<header class="institutional-header">
+  <div class="inner">
+    <div class="brand-block">
+      <div class="eyebrow">Governo do Estado de São Paulo</div>
+      <div class="org">Secretaria da Habitação</div>
+      <div class="dept">Coordenadoria de Trabalho Social · Programa Pode Entrar</div>
+    </div>
+    <div class="meta-block">
+      <div>Painel de Dados</div>
+      <div class="updated" id="update-info">Aguardando planilha</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="upload-zone" id="upload-zone">
+    <div class="rule"></div>
+    <h2>Carregue a planilha</h2>
+    <p>Arraste o Quadro Geral de Empreendimentos aqui, ou clique no botão abaixo. O arquivo é processado localmente no seu navegador — nada é enviado a nenhum servidor.</p>
+    <button class="cta" id="pick-file-btn">Selecionar arquivo</button>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none">
+    <div class="hint">Aceita .xlsx  ·  .xls  ·  .csv</div>
+  </div>
+
+  <div class="file-bar" id="file-bar">
+    <div class="file-info">
+      <strong id="file-name">—</strong>
+      <span class="sep">|</span>
+      <span id="file-stats">—</span>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btn-print">Imprimir</button>
+      <button class="btn" id="btn-export">Exportar CSV</button>
+      <button class="btn primary" id="btn-change">Trocar arquivo</button>
+    </div>
+  </div>
+
+  <div class="lgpd-alert" id="lgpd-alert">
+    <strong>⚠ Aviso LGPD ·</strong> Esta planilha contém dados pessoais de beneficiários (CPF, nome, telefone, e-mail, data de nascimento, renda). O conteúdo permanece <strong>somente no seu navegador</strong> e não é enviado a nenhum servidor. Se for publicar este painel na internet, use apenas as visões agregadas (Visão Geral, Perfil, Distribuições, Empreendimentos) — a tabela de famílias individuais não deve ser exposta publicamente.
+  </div>
+
+  <div id="error-container"></div>
+
+  <!-- Visão Geral -->
+  <section id="sec-overview">
+    <div class="section-heading"><h3>Visão geral</h3><span class="num">Indicadores em tempo real</span></div>
+    <div class="kpi-grid" id="kpi-overview"></div>
+  </section>
+
+  <!-- Perfil -->
+  <section id="sec-profile">
+    <div class="section-heading"><h3>Perfil das famílias</h3><span class="num">Composição e vulnerabilidades</span></div>
+    <div class="kpi-grid" id="kpi-profile"></div>
+  </section>
+
+  <!-- Distribuição -->
+  <section id="sec-distribution">
+    <div class="section-heading"><h3>Distribuição</h3><span class="num">Por região e modalidade</span></div>
+    <div class="dist-container" id="dist-container"></div>
+  </section>
+
+  <!-- Empreendimentos -->
+  <section id="sec-projects">
+    <div class="section-heading"><h3>Empreendimentos</h3><span class="num" id="projects-count">—</span></div>
+    <div class="filters" id="projects-filters"></div>
+    <div class="table-controls">
+      <div class="search-box"><input type="text" id="projects-search" placeholder="Buscar por empreendimento, construtora ou subprefeitura..."></div>
+      <div class="table-info" id="projects-info">—</div>
+    </div>
+    <div class="table-wrap">
+      <table id="projects-table"><thead id="projects-head"></thead><tbody id="projects-body"></tbody></table>
+    </div>
+  </section>
+
+  <!-- Famílias -->
+  <section id="sec-families">
+    <div class="section-heading"><h3>Registro de famílias</h3><span class="num" id="families-count">—</span></div>
+    <div class="filters" id="families-filters"></div>
+    <div class="table-controls">
+      <div class="search-box"><input type="text" id="families-search" placeholder="Buscar por nome, CPF ou empreendimento..."></div>
+      <div class="table-info" id="families-info">—</div>
+    </div>
+    <div class="table-wrap">
+      <table id="families-table"><thead id="families-head"></thead><tbody id="families-body"></tbody></table>
+    </div>
+    <div class="pagination" id="families-pagination"></div>
+  </section>
+</main>
+
+<script>
+// ============================================================
+// ESTADO
+// ============================================================
+const state = {
+  workbook: null,
+  projects: [],          // aba "Painel de Dossiês" / "Quantitativo" combinados
+  families: [],          // aba "AquiEmp"
+  filteredProjects: [],
+  filteredFamilies: [],
+  familiesPage: 1,
+  familiesPerPage: 25,
+  projectsSort: null,
+  projectsSortAsc: true,
+  familiesSort: null,
+  familiesSortAsc: true,
+  projectsFilters: {},
+  familiesFilters: {},
+  projectsSearch: '',
+  familiesSearch: ''
+};
+
+// ============================================================
+// UTILIDADES
+// ============================================================
+function fmt(n) {
+  if (n === null || n === undefined || n === '' || isNaN(n)) return '—';
+  return Number(n).toLocaleString('pt-BR');
+}
+function pct(v, total) {
+  if (!total) return '0%';
+  return (Math.round((v/total)*1000)/10).toFixed(1).replace('.', ',') + '%';
+}
+function normStr(v) { return v === null || v === undefined ? '' : String(v).trim(); }
+function isEmpty(v) { return v === null || v === undefined || v === '' || v === '#REF!' || v === '#N/A'; }
+function toNum(v) {
+  if (isEmpty(v)) return 0;
+  if (typeof v === 'number') return v;
+  const n = parseFloat(String(v).replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
+function excelDateToJS(serial) {
+  if (typeof serial !== 'number' || serial < 10000 || serial > 100000) return null;
+  const utc_days = Math.floor(serial - 25569);
+  const utc_value = utc_days * 86400;
+  return new Date(utc_value * 1000);
+}
+function formatDate(v) {
+  if (!v) return '—';
+  if (v instanceof Date) return v.toLocaleDateString('pt-BR');
+  if (typeof v === 'number') {
+    const d = excelDateToJS(v);
+    return d ? d.toLocaleDateString('pt-BR') : String(v);
+  }
+  const s = String(v).trim();
+  if (s === '01/01/1900' || s === '') return '—';
+  return s;
+}
+function calcAge(birthdate) {
+  if (!birthdate) return null;
+  let d = birthdate instanceof Date ? birthdate : (typeof birthdate === 'number' ? excelDateToJS(birthdate) : null);
+  if (!d) {
+    const s = String(birthdate).trim();
+    const parts = s.split('/');
+    if (parts.length === 3) d = new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+  }
+  if (!d || isNaN(d.getTime()) || d.getFullYear() < 1901) return null;
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+  return age >= 0 && age <= 120 ? age : null;
+}
+function showError(msg) {
+  const c = document.getElementById('error-container');
+  c.innerHTML = `<div class="error">${msg}</div>`;
+  setTimeout(() => c.innerHTML = '', 8000);
+}
+
+// ============================================================
+// LEITURA DO EXCEL
+// ============================================================
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array', cellDates: true });
+      state.workbook = wb;
+      processWorkbook(wb, file.name);
+    } catch (err) {
+      showError('Não foi possível ler o arquivo: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function processWorkbook(wb, fileName) {
+  state.projects = [];
+  state.families = [];
+
+  // Encontra as abas por nome (tolerante a variações)
+  const sheetNames = wb.SheetNames;
+  const findSheet = (patterns) => sheetNames.find(n => patterns.some(p => n.toLowerCase().includes(p.toLowerCase())));
+
+  const quantSheet = findSheet(['quantitativo']);
+  const painelSheet = findSheet(['painel', 'dossi']);
+  const familiesSheet = findSheet(['aquiemp', 'famili']);
+
+  // Processa aba Quantitativo (dados agregados por empreendimento)
+  if (quantSheet) {
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[quantSheet], { header: 1, defval: null, blankrows: false });
+    // Estrutura: linhas 1-4 são cabeçalhos (índices 0-3), dados começam no índice 4
+    // Colunas: 0=Empreendimento, 1=UH COHAB, 2=UH SEHAB, 3=UH TOTAL, 4=DTS, 5=Termo COHAB, 6=Termo SEHAB,
+    // 7=Selec COHAB, 8=Selec SEHAB, 9=Dossie COHAB, 10=Dossie SEHAB, 11=Aprov COHAB, 12=Aprov SEHAB,
+    // 13=Contr COHAB, 14=Contr SEHAB, 15=Reprov COHAB, 16=Reprov SEHAB, 17=Ausentes COHAB, 18=Ausentes SEHAB,
+    // 19=Pend COHAB, 20=Pend SEHAB, 21=Desist COHAB, 22=Desist SEHAB, 23=Descl COHAB, 24=Descl SEHAB,
+    // 25=Excedente COHAB, 26=Excedente SEHAB, 27=Total
+    for (let i = 4; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r || !r[0] || normStr(r[0]).toLowerCase().includes('total')) continue;
+      const proj = {
+        empreendimento: normStr(r[0]),
+        uh_cohab: toNum(r[1]),
+        uh_sehab: toNum(r[2]),
+        uh_total: toNum(r[3]),
+        dts: normStr(r[4]),
+        termo: toNum(r[5]) + toNum(r[6]),
+        selecionado: toNum(r[7]) + toNum(r[8]),
+        dossie_enviado: toNum(r[9]) + toNum(r[10]),
+        aprovado: toNum(r[11]) + toNum(r[12]),
+        contrato: toNum(r[13]) + toNum(r[14]),
+        reprovado: toNum(r[15]) + toNum(r[16]),
+        ausentes: toNum(r[17]) + toNum(r[18]),
+        pendente: toNum(r[19]) + toNum(r[20]),
+        desistencia: toNum(r[21]) + toNum(r[22]),
+        desclassificado: toNum(r[23]) + toNum(r[24]),
+        excedente: toNum(r[25]) + toNum(r[26]),
+        total_dossies: toNum(r[27])
+      };
+      // Vagas disponíveis = UH Total - (aprovados + contratos + termo + selecionado + dossie enviado + pendente)
+      // ou simplificado: UH Total menos famílias "engajadas" (com algum status ativo)
+      const engajadas = proj.aprovado + proj.contrato + proj.termo + proj.selecionado + proj.dossie_enviado + proj.pendente;
+      proj.vagas_disponiveis = Math.max(0, proj.uh_total - engajadas);
+      state.projects.push(proj);
+    }
+  }
+
+  // Processa aba Painel (endereço, construtora, modalidade)
+  if (painelSheet) {
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[painelSheet], { header: 1, defval: null, blankrows: false });
+    // Cabeçalho: linhas 1-2 são headers mesclados, dados começam na linha 3
+    // Colunas úteis: 0-Empreendimento, 1-Modalidade, 2-SUBPREFEITURA, 4-DTS, 5-ENDEREÇO, 6-CONSTRUTORA, 9-%obra, 10-Data evento
+    const enrichMap = {};
+    for (let i = 2; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r || !r[0]) continue;
+      const key = normStr(r[0]).toUpperCase();
+      enrichMap[key] = {
+        modalidade: normStr(r[1]),
+        subprefeitura: normStr(r[2]),
+        dts: normStr(r[4]),
+        endereco: normStr(r[5]),
+        construtora: normStr(r[6]),
+        percent_obra: toNum(r[9]),
+        data_evento: r[10] ? formatDate(r[10]) : '—'
+      };
+    }
+    // Enriquece os projetos existentes
+    state.projects.forEach(p => {
+      const key = p.empreendimento.toUpperCase();
+      // Busca exata ou parcial
+      let match = enrichMap[key];
+      if (!match) {
+        const partialKey = Object.keys(enrichMap).find(k => k.includes(key) || key.includes(k));
+        if (partialKey) match = enrichMap[partialKey];
+      }
+      if (match) Object.assign(p, match);
+      if (!p.dts && match) p.dts = match.dts;
+    });
+    // Adiciona projetos do Painel que não estão no Quantitativo
+    Object.keys(enrichMap).forEach(key => {
+      if (!state.projects.some(p => p.empreendimento.toUpperCase() === key)) {
+        const enr = enrichMap[key];
+        state.projects.push({
+          empreendimento: key,
+          uh_cohab: 0, uh_sehab: 0, uh_total: 0,
+          termo: 0, selecionado: 0, dossie_enviado: 0, aprovado: 0,
+          contrato: 0, reprovado: 0, ausentes: 0, pendente: 0,
+          desistencia: 0, desclassificado: 0, excedente: 0,
+          total_dossies: 0, vagas_disponiveis: 0,
+          ...enr
+        });
+      }
+    });
+  }
+
+  // Processa aba AquiEmp (famílias individuais)
+  if (familiesSheet) {
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[familiesSheet], { header: 1, defval: null, blankrows: false });
+    // Cabeçalho na linha 1, dados na linha 2+
+    // 0-Demanda, 1-CPF, 2-Empreendimento, 4-Nome, 7-Devolutiva, 10-Telefone, 11-Celular, 12-Email,
+    // 15-Idade1 (data nasc coparticipante), 16-Sexo1, 17-Renda1, 20-DataSelecao, 21-Descricao (com pontuações),
+    // 22-Contrato, 28-Motivo, 29-Status Dossiê, 30-Tipologia, 31-Bloco, 32-Andar, 33-Apto, 34-StatusComercial
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r || !r[1]) continue;
+      const descricao = normStr(r[21]);
+      const composicao = normStr(r[19]) || normStr(r[21]);
+      const idadeCop = calcAge(r[15]);
+      const idadeTitular = null; // não temos data de nasc do titular direto na maioria
+
+      const fam = {
+        demanda: normStr(r[0]),
+        cpf: normStr(r[1]),
+        empreendimento: normStr(r[2]),
+        inscricao: normStr(r[3]),
+        nome: normStr(r[4]),
+        devolutiva: normStr(r[7]).toUpperCase(),
+        telefone: normStr(r[10]),
+        celular: normStr(r[11]),
+        email: normStr(r[12]),
+        cop_nome: normStr(r[13]),
+        cop_parentesco: normStr(r[14]),
+        cop_idade: idadeCop,
+        cop_sexo: normStr(r[16]),
+        renda: toNum(r[17]),
+        composicao_ranking: composicao,
+        data_selecao: formatDate(r[20]),
+        descricao: descricao,
+        contrato: normStr(r[22]),
+        status_dossie: normStr(r[29]),
+        tipologia: normStr(r[30]),
+        bloco: normStr(r[31]),
+        andar: normStr(r[32]),
+        apto: normStr(r[33]),
+        status_comercial: normStr(r[34])
+      };
+      // Extrai atributos do campo descricao
+      fam.mulher_responsavel = /Mulher Responsável.*=>\s*1/i.test(descricao);
+      fam.onus_aluguel = /ônus excessivo.*=>\s*1/i.test(descricao);
+      fam.trabalha_distrito = /trabalham no distrito.*=>\s*1/i.test(descricao);
+      fam.auxilio_aluguel = /Auxilio Aluguel SEHAB\s*=>\s*1/i.test(descricao);
+      fam.crianca_primeira_infancia = /criança na 1ª infância.*=>\s*1/i.test(descricao);
+      fam.tem_idoso = /Idoso na familia/i.test(fam.composicao_ranking) || (fam.cop_idade !== null && fam.cop_idade >= 60);
+      fam.tem_deficiente = /Deficiente na familia/i.test(fam.composicao_ranking);
+      fam.tem_crianca = fam.crianca_primeira_infancia || (fam.cop_idade !== null && fam.cop_idade <= 12);
+      fam.grupo_15anos = /15 anos/i.test(fam.composicao_ranking);
+
+      state.families.push(fam);
+    }
+  }
+
+  if (state.projects.length === 0 && state.families.length === 0) {
+    showError('Não foi possível reconhecer a estrutura da planilha. Confira se ela contém as abas "Painel de Dossiês", "Quantitativo" ou "AquiEmp".');
+    return;
+  }
+
+  // UI
+  document.getElementById('upload-zone').style.display = 'none';
+  document.getElementById('file-bar').classList.add('active');
+  document.getElementById('file-name').textContent = fileName;
+  document.getElementById('file-stats').textContent =
+    `${state.projects.length} empreendimentos · ${state.families.length.toLocaleString('pt-BR')} registros de famílias`;
+
+  if (state.families.length > 0) document.getElementById('lgpd-alert').classList.add('active');
+
+  const now = new Date();
+  document.getElementById('update-info').textContent =
+    `Atualizado ${now.toLocaleDateString('pt-BR')} · ${now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}`;
+
+  renderAll();
+}
+
+// ============================================================
+// RENDERIZAÇÃO
+// ============================================================
+function renderAll() {
+  renderOverview();
+  renderProfile();
+  renderDistribution();
+  renderProjects();
+  renderFamilies();
+}
+
+function renderOverview() {
+  const p = state.projects;
+  const totalUH = p.reduce((s,x) => s + x.uh_total, 0);
+  const totalAprov = p.reduce((s,x) => s + x.aprovado, 0);
+  const totalContr = p.reduce((s,x) => s + x.contrato, 0);
+  const totalPend = p.reduce((s,x) => s + x.pendente, 0);
+  const totalVagas = p.reduce((s,x) => s + x.vagas_disponiveis, 0);
+  const totalDossie = p.reduce((s,x) => s + x.dossie_enviado, 0);
+  const totalSelec = p.reduce((s,x) => s + x.selecionado, 0);
+  const totalTermo = p.reduce((s,x) => s + x.termo, 0);
+  const familiasAtivas = state.families.filter(f =>
+    !['DESISTENCIA','EXCLUIDO','FALECEU','DEMANDA EXCEDENTE','SUBSTITUIDO','DESCLASSIFICADO'].some(s => f.devolutiva.includes(s))
+  ).length;
+
+  const kpis = [
+    { label: 'Unidades Habitacionais', value: fmt(totalUH), sublabel: `${p.length} empreendimentos`, cls: '' },
+    { label: 'Aprovados', value: fmt(totalAprov), pct: `${pct(totalAprov, totalUH)} das UHs`, cls: 'accent' },
+    { label: 'Contratos assinados', value: fmt(totalContr), pct: `${pct(totalContr, totalUH)} das UHs`, cls: 'accent' },
+    { label: 'Pendências', value: fmt(totalPend), sublabel: 'Aguardando resolução', cls: 'warn' },
+    { label: 'Vagas disponíveis', value: fmt(totalVagas), sublabel: `${pct(totalVagas, totalUH)} do total`, cls: 'gold' },
+    { label: 'Termos assinados', value: fmt(totalTermo), sublabel: 'Vinculação formalizada', cls: '' },
+    { label: 'Selecionados', value: fmt(totalSelec), sublabel: 'Etapa inicial', cls: '' },
+    { label: 'Famílias ativas', value: fmt(familiasAtivas), sublabel: `${state.families.length.toLocaleString('pt-BR')} registros no total`, cls: '' }
+  ];
+
+  document.getElementById('kpi-overview').innerHTML = kpis.map(k => `
+    <div class="kpi ${k.cls}">
+      <div class="label">${k.label}</div>
+      <div>
+        <div class="value">${k.value}</div>
+        ${k.pct ? `<div class="pct">${k.pct}</div>` : ''}
+        ${k.sublabel ? `<div class="sublabel">${k.sublabel}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('sec-overview').classList.add('active');
+}
+
+function renderProfile() {
+  if (state.families.length === 0) return;
+  const f = state.families;
+  const active = f.filter(x => !['DESISTENCIA','EXCLUIDO','FALECEU','DEMANDA EXCEDENTE','SUBSTITUIDO','DESCLASSIFICADO'].some(s => x.devolutiva.includes(s)));
+  const total = active.length || 1;
+
+  const idosos = active.filter(x => x.tem_idoso).length;
+  const criancas = active.filter(x => x.tem_crianca).length;
+  const deficientes = active.filter(x => x.tem_deficiente).length;
+  const mulheres = active.filter(x => x.mulher_responsavel).length;
+  const auxilio = active.filter(x => x.auxilio_aluguel).length;
+  const onus = active.filter(x => x.onus_aluguel).length;
+  const grupo15 = active.filter(x => x.grupo_15anos).length;
+  const rendaMedia = active.filter(x => x.renda > 0).reduce((s,x) => s + x.renda, 0) / (active.filter(x => x.renda > 0).length || 1);
+
+  const kpis = [
+    { label: 'Famílias com idoso', value: fmt(idosos), pct: pct(idosos, total) },
+    { label: 'Famílias com criança', value: fmt(criancas), pct: pct(criancas, total) },
+    { label: 'Famílias com deficiente', value: fmt(deficientes), pct: pct(deficientes, total) },
+    { label: 'Mulher responsável', value: fmt(mulheres), pct: pct(mulheres, total) },
+    { label: 'Auxílio-aluguel SEHAB', value: fmt(auxilio), pct: pct(auxilio, total), cls: 'gold' },
+    { label: 'Ônus excessivo com aluguel', value: fmt(onus), pct: pct(onus, total) },
+    { label: 'Inscritas há 15+ anos', value: fmt(grupo15), pct: pct(grupo15, total) },
+    { label: 'Renda média', value: 'R$ ' + rendaMedia.toLocaleString('pt-BR', {maximumFractionDigits: 0}), sublabel: 'Titulares com renda' }
+  ];
+
+  document.getElementById('kpi-profile').innerHTML = kpis.map(k => `
+    <div class="kpi ${k.cls || ''}">
+      <div class="label">${k.label}</div>
+      <div>
+        <div class="value">${k.value}</div>
+        ${k.pct ? `<div class="pct">${k.pct} das famílias ativas</div>` : ''}
+        ${k.sublabel ? `<div class="sublabel">${k.sublabel}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('sec-profile').classList.add('active');
+}
+
+function renderDistribution() {
+  const container = document.getElementById('dist-container');
+  container.innerHTML = '';
+
+  // Por DTS
+  const byDTS = {};
+  state.projects.forEach(p => {
+    const k = p.dts || '(sem região)';
+    if (!byDTS[k]) byDTS[k] = { uh: 0, aprov: 0, contr: 0, vagas: 0 };
+    byDTS[k].uh += p.uh_total;
+    byDTS[k].aprov += p.aprovado;
+    byDTS[k].contr += p.contrato;
+    byDTS[k].vagas += p.vagas_disponiveis;
+  });
+  const dtsSorted = Object.entries(byDTS).filter(([k,v]) => v.uh > 0).sort((a,b) => b[1].uh - a[1].uh);
+  const maxDts = dtsSorted[0] ? dtsSorted[0][1].uh : 1;
+
+  container.innerHTML += `
+    <div class="distribution">
+      <div class="distribution-title">Unidades Habitacionais por região</div>
+      ${dtsSorted.map(([k,v]) => `
+        <div class="dist-row">
+          <div class="cat" title="${k}">${k}</div>
+          <div class="bar-wrap"><div class="bar" style="width:${(v.uh/maxDts)*100}%"></div></div>
+          <div class="count">${fmt(v.uh)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  // Por Modalidade
+  const byMod = {};
+  state.projects.forEach(p => {
+    const k = p.modalidade || '(não informada)';
+    if (!byMod[k]) byMod[k] = 0;
+    byMod[k] += p.uh_total;
+  });
+  const modSorted = Object.entries(byMod).filter(([k,v]) => v > 0).sort((a,b) => b[1] - a[1]);
+  const maxMod = modSorted[0] ? modSorted[0][1] : 1;
+
+  container.innerHTML += `
+    <div class="distribution">
+      <div class="distribution-title">Unidades Habitacionais por modalidade</div>
+      ${modSorted.map(([k,v]) => `
+        <div class="dist-row">
+          <div class="cat" title="${k}">${k}</div>
+          <div class="bar-wrap"><div class="bar" style="width:${(v/maxMod)*100}%"></div></div>
+          <div class="count">${fmt(v)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  // Vagas disponíveis por região
+  const vagasSorted = dtsSorted.filter(([k,v]) => v.vagas > 0).sort((a,b) => b[1].vagas - a[1].vagas);
+  const maxVagas = vagasSorted[0] ? vagasSorted[0][1].vagas : 1;
+
+  container.innerHTML += `
+    <div class="distribution">
+      <div class="distribution-title">Vagas disponíveis por região</div>
+      ${vagasSorted.map(([k,v]) => `
+        <div class="dist-row">
+          <div class="cat" title="${k}">${k}</div>
+          <div class="bar-wrap"><div class="bar" style="width:${(v.vagas/maxVagas)*100}%; background:var(--gold)"></div></div>
+          <div class="count">${fmt(v.vagas)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  document.getElementById('sec-distribution').classList.add('active');
+}
+
+// ============================================================
+// EMPREENDIMENTOS
+// ============================================================
+function renderProjects() {
+  // Filtros
+  const filtersEl = document.getElementById('projects-filters');
+  const dtsOpts = [...new Set(state.projects.map(p => p.dts).filter(Boolean))].sort();
+  const modOpts = [...new Set(state.projects.map(p => p.modalidade).filter(Boolean))].sort();
+  filtersEl.innerHTML = `
+    <div class="filter-item">
+      <label>Região (DTS)</label>
+      <select data-col="dts"><option value="">Todas</option>${dtsOpts.map(o => `<option>${o}</option>`).join('')}</select>
+    </div>
+    <div class="filter-item">
+      <label>Modalidade</label>
+      <select data-col="modalidade"><option value="">Todas</option>${modOpts.map(o => `<option>${o}</option>`).join('')}</select>
+    </div>
+    <div class="filter-item">
+      <label>Situação</label>
+      <select data-col="situacao">
+        <option value="">Todas</option>
+        <option value="vagas">Com vagas disponíveis</option>
+        <option value="pendencias">Com pendências</option>
+        <option value="completos">Sem vagas</option>
+      </select>
+    </div>
+  `;
+  filtersEl.querySelectorAll('select').forEach(sel => {
+    sel.addEventListener('change', e => {
+      state.projectsFilters[e.target.dataset.col] = e.target.value;
+      applyProjectsFilters();
+    });
+  });
+
+  applyProjectsFilters();
+  document.getElementById('sec-projects').classList.add('active');
+}
+
+function applyProjectsFilters() {
+  let rows = [...state.projects];
+  const f = state.projectsFilters;
+  if (f.dts) rows = rows.filter(r => r.dts === f.dts);
+  if (f.modalidade) rows = rows.filter(r => r.modalidade === f.modalidade);
+  if (f.situacao === 'vagas') rows = rows.filter(r => r.vagas_disponiveis > 0);
+  if (f.situacao === 'pendencias') rows = rows.filter(r => r.pendente > 0);
+  if (f.situacao === 'completos') rows = rows.filter(r => r.vagas_disponiveis === 0 && r.uh_total > 0);
+
+  if (state.projectsSearch) {
+    const t = state.projectsSearch.toLowerCase();
+    rows = rows.filter(r =>
+      r.empreendimento.toLowerCase().includes(t) ||
+      (r.construtora || '').toLowerCase().includes(t) ||
+      (r.subprefeitura || '').toLowerCase().includes(t)
+    );
+  }
+
+  if (state.projectsSort) {
+    rows.sort((a,b) => {
+      let av = a[state.projectsSort], bv = b[state.projectsSort];
+      if (typeof av === 'number') return state.projectsSortAsc ? av-bv : bv-av;
+      return state.projectsSortAsc ? String(av||'').localeCompare(String(bv||''), 'pt-BR') : String(bv||'').localeCompare(String(av||''), 'pt-BR');
+    });
+  }
+
+  state.filteredProjects = rows;
+  renderProjectsTable();
+}
+
+function renderProjectsTable() {
+  const cols = [
+    { key: 'empreendimento', label: 'Empreendimento' },
+    { key: 'dts', label: 'Região' },
+    { key: 'modalidade', label: 'Modalidade' },
+    { key: 'uh_total', label: 'UHs', numeric: true },
+    { key: 'aprovado', label: 'Aprov.', numeric: true },
+    { key: 'contrato', label: 'Contr.', numeric: true },
+    { key: 'pendente', label: 'Pend.', numeric: true },
+    { key: 'vagas_disponiveis', label: 'Vagas', numeric: true },
+    { key: 'ocupacao', label: 'Ocupação' }
+  ];
+
+  document.getElementById('projects-head').innerHTML = '<tr>' + cols.map(c => {
+    const sorted = state.projectsSort === c.key;
+    const ind = sorted ? (state.projectsSortAsc ? '▲' : '▼') : '↕';
+    return `<th data-col="${c.key}" class="${sorted?'sorted':''}">${c.label}<span class="sort-ind">${ind}</span></th>`;
+  }).join('') + '</tr>';
+
+  document.querySelectorAll('#projects-head th').forEach(th => {
+    th.addEventListener('click', () => {
+      const c = th.dataset.col;
+      if (c === 'ocupacao') return;
+      if (state.projectsSort === c) state.projectsSortAsc = !state.projectsSortAsc;
+      else { state.projectsSort = c; state.projectsSortAsc = true; }
+      applyProjectsFilters();
+    });
+  });
+
+  const rows = state.filteredProjects;
+  if (rows.length === 0) {
+    document.getElementById('projects-body').innerHTML = `<tr><td colspan="${cols.length}" class="empty-state">Nenhum empreendimento encontrado.</td></tr>`;
+  } else {
+    document.getElementById('projects-body').innerHTML = rows.map(r => {
+      const engajadas = r.uh_total - r.vagas_disponiveis;
+      const pctOcup = r.uh_total ? Math.round((engajadas / r.uh_total) * 100) : 0;
+      const pctCls = pctOcup >= 80 ? '' : pctOcup >= 40 ? 'med' : 'low';
+      return `
+        <tr>
+          <td><strong>${r.empreendimento}</strong>${r.construtora ? `<div style="font-size:11px;color:var(--ink-3);margin-top:2px">${r.construtora}</div>` : ''}</td>
+          <td>${r.dts || '—'}</td>
+          <td>${r.modalidade || '—'}</td>
+          <td class="numeric">${fmt(r.uh_total)}</td>
+          <td class="numeric">${fmt(r.aprovado)}</td>
+          <td class="numeric">${fmt(r.contrato)}</td>
+          <td class="numeric" style="color:${r.pendente > 0 ? 'var(--warn)' : 'var(--ink-3)'}">${fmt(r.pendente)}</td>
+          <td class="numeric" style="color:${r.vagas_disponiveis > 0 ? 'var(--gold)' : 'var(--ink-3)'};font-weight:${r.vagas_disponiveis > 0 ? '500' : '400'}">${fmt(r.vagas_disponiveis)}</td>
+          <td class="progress-cell">
+            <div class="progress-wrap">
+              <div class="progress-track"><div class="progress-fill ${pctCls}" style="width:${pctOcup}%"></div></div>
+              <div class="progress-label">${pctOcup}%</div>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('projects-info').textContent = `${rows.length} de ${state.projects.length}`;
+  document.getElementById('projects-count').textContent = `${state.projects.length} empreendimentos`;
+}
+
+// ============================================================
+// FAMÍLIAS
+// ============================================================
+function renderFamilies() {
+  if (state.families.length === 0) {
+    document.getElementById('sec-families').classList.remove('active');
+    return;
+  }
+
+  const filtersEl = document.getElementById('families-filters');
+  const empOpts = [...new Set(state.families.map(f => f.empreendimento).filter(Boolean))].sort();
+  const devOpts = [...new Set(state.families.map(f => f.devolutiva).filter(Boolean))].sort();
+  filtersEl.innerHTML = `
+    <div class="filter-item">
+      <label>Empreendimento</label>
+      <select data-col="empreendimento"><option value="">Todos</option>${empOpts.map(o => `<option>${o}</option>`).join('')}</select>
+    </div>
+    <div class="filter-item">
+      <label>Status</label>
+      <select data-col="devolutiva"><option value="">Todos</option>${devOpts.map(o => `<option>${o}</option>`).join('')}</select>
+    </div>
+    <div class="filter-item">
+      <label>Perfil</label>
+      <select data-col="perfil">
+        <option value="">Todos</option>
+        <option value="idoso">Com idoso</option>
+        <option value="crianca">Com criança</option>
+        <option value="deficiente">Com deficiente</option>
+        <option value="mulher">Mulher responsável</option>
+        <option value="auxilio">Recebe auxílio-aluguel</option>
+      </select>
+    </div>
+    <div class="filter-item">
+      <label>Demanda</label>
+      <select data-col="demanda">
+        <option value="">Todas</option>
+        <option value="COHAB">COHAB</option>
+        <option value="SEHAB">SEHAB</option>
+      </select>
+    </div>
+  `;
+  filtersEl.querySelectorAll('select').forEach(sel => {
+    sel.addEventListener('change', e => {
+      state.familiesFilters[e.target.dataset.col] = e.target.value;
+      state.familiesPage = 1;
+      applyFamiliesFilters();
+    });
+  });
+
+  applyFamiliesFilters();
+  document.getElementById('sec-families').classList.add('active');
+}
+
+function applyFamiliesFilters() {
+  let rows = [...state.families];
+  const f = state.familiesFilters;
+  if (f.empreendimento) rows = rows.filter(r => r.empreendimento === f.empreendimento);
+  if (f.devolutiva) rows = rows.filter(r => r.devolutiva === f.devolutiva);
+  if (f.demanda) rows = rows.filter(r => r.demanda === f.demanda);
+  if (f.perfil === 'idoso') rows = rows.filter(r => r.tem_idoso);
+  if (f.perfil === 'crianca') rows = rows.filter(r => r.tem_crianca);
+  if (f.perfil === 'deficiente') rows = rows.filter(r => r.tem_deficiente);
+  if (f.perfil === 'mulher') rows = rows.filter(r => r.mulher_responsavel);
+  if (f.perfil === 'auxilio') rows = rows.filter(r => r.auxilio_aluguel);
+
+  if (state.familiesSearch) {
+    const t = state.familiesSearch.toLowerCase();
+    rows = rows.filter(r =>
+      r.nome.toLowerCase().includes(t) ||
+      r.cpf.includes(t) ||
+      r.empreendimento.toLowerCase().includes(t)
+    );
+  }
+
+  if (state.familiesSort) {
+    rows.sort((a,b) => {
+      let av = a[state.familiesSort], bv = b[state.familiesSort];
+      if (typeof av === 'number') return state.familiesSortAsc ? av-bv : bv-av;
+      return state.familiesSortAsc ? String(av||'').localeCompare(String(bv||''), 'pt-BR') : String(bv||'').localeCompare(String(av||''), 'pt-BR');
+    });
+  }
+
+  state.filteredFamilies = rows;
+  renderFamiliesTable();
+}
+
+function statusBadge(status) {
+  const s = status.toUpperCase();
+  let cls = 'default';
+  if (s.includes('CONTRATO')) cls = 'contrato';
+  else if (s.includes('APROVADO')) cls = 'aprovado';
+  else if (s.includes('PENDENTE')) cls = 'pendente';
+  else if (s.includes('SELECIONADO')) cls = 'selecionado';
+  else if (s.includes('TERMO')) cls = 'termo';
+  else if (s.includes('DESIST') || s.includes('EXCLU') || s.includes('FALECEU') || s.includes('EXCEDENTE')) cls = 'desistencia';
+  return `<span class="badge ${cls}">${status || '—'}</span>`;
+}
+
+function renderFamiliesTable() {
+  const cols = [
+    { key: 'nome', label: 'Titular' },
+    { key: 'cpf', label: 'CPF' },
+    { key: 'empreendimento', label: 'Empreendimento' },
+    { key: 'devolutiva', label: 'Status' },
+    { key: 'demanda', label: 'Demanda' },
+    { key: 'renda', label: 'Renda' },
+    { key: 'perfil', label: 'Perfil' },
+    { key: 'unidade', label: 'Unidade' }
+  ];
+
+  document.getElementById('families-head').innerHTML = '<tr>' + cols.map(c => {
+    const sorted = state.familiesSort === c.key;
+    const ind = sorted ? (state.familiesSortAsc ? '▲' : '▼') : '↕';
+    const sortable = !['perfil', 'unidade'].includes(c.key);
+    return `<th data-col="${c.key}" class="${sorted?'sorted':''}" ${sortable?'':'style="cursor:default"'}>${c.label}${sortable?`<span class="sort-ind">${ind}</span>`:''}</th>`;
+  }).join('') + '</tr>';
+
+  document.querySelectorAll('#families-head th').forEach(th => {
+    th.addEventListener('click', () => {
+      const c = th.dataset.col;
+      if (['perfil', 'unidade'].includes(c)) return;
+      if (state.familiesSort === c) state.familiesSortAsc = !state.familiesSortAsc;
+      else { state.familiesSort = c; state.familiesSortAsc = true; }
+      applyFamiliesFilters();
+    });
+  });
+
+  const total = state.filteredFamilies.length;
+  const totalPages = Math.max(1, Math.ceil(total / state.familiesPerPage));
+  if (state.familiesPage > totalPages) state.familiesPage = totalPages;
+  const start = (state.familiesPage - 1) * state.familiesPerPage;
+  const end = Math.min(start + state.familiesPerPage, total);
+  const pageRows = state.filteredFamilies.slice(start, end);
+
+  if (pageRows.length === 0) {
+    document.getElementById('families-body').innerHTML = `<tr><td colspan="${cols.length}" class="empty-state">Nenhuma família encontrada.</td></tr>`;
+  } else {
+    document.getElementById('families-body').innerHTML = pageRows.map(r => {
+      const perfilTags = [];
+      if (r.tem_idoso) perfilTags.push('Idoso');
+      if (r.tem_crianca) perfilTags.push('Criança');
+      if (r.tem_deficiente) perfilTags.push('Deficiente');
+      if (r.mulher_responsavel) perfilTags.push('Mulher resp.');
+      if (r.auxilio_aluguel) perfilTags.push('Aux. aluguel');
+      const unidade = [r.bloco, r.andar, r.apto].filter(x => x).join(' · ') || '—';
+      return `
+        <tr>
+          <td><strong>${r.nome || '—'}</strong></td>
+          <td class="mono">${r.cpf}</td>
+          <td style="max-width:200px;font-size:11.5px">${r.empreendimento}</td>
+          <td>${statusBadge(r.devolutiva)}</td>
+          <td class="mono">${r.demanda || '—'}</td>
+          <td class="numeric">${r.renda ? 'R$ ' + r.renda.toLocaleString('pt-BR', {maximumFractionDigits:0}) : '—'}</td>
+          <td style="font-size:11px">${perfilTags.length ? perfilTags.map(t => `<span style="display:inline-block;padding:1px 6px;background:var(--line-soft);border-radius:2px;margin:1px 2px 1px 0">${t}</span>`).join('') : '<span style="color:var(--ink-3)">—</span>'}</td>
+          <td class="mono" style="font-size:11px">${unidade}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('families-info').textContent = total > 0
+    ? `${(start+1).toLocaleString('pt-BR')}–${end.toLocaleString('pt-BR')} de ${total.toLocaleString('pt-BR')}`
+    : '0 famílias';
+  document.getElementById('families-count').textContent = `${total.toLocaleString('pt-BR')} de ${state.families.length.toLocaleString('pt-BR')} famílias`;
+
+  renderFamiliesPagination(totalPages);
+}
+
+function renderFamiliesPagination(totalPages) {
+  const container = document.getElementById('families-pagination');
+  if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+  const cp = state.familiesPage;
+  let html = `<div class="page-info">Página ${cp} de ${totalPages}</div><div class="page-controls">`;
+  html += `<button class="page-btn" ${cp===1?'disabled':''} data-p="${cp-1}">◄</button>`;
+  const range = 2;
+  const start = Math.max(1, cp-range), endP = Math.min(totalPages, cp+range);
+  if (start > 1) { html += `<button class="page-btn" data-p="1">1</button>`; if (start > 2) html += `<span style="color:var(--ink-3);padding:0 4px">…</span>`; }
+  for (let i = start; i <= endP; i++) html += `<button class="page-btn ${i===cp?'current':''}" data-p="${i}">${i}</button>`;
+  if (endP < totalPages) { if (endP < totalPages-1) html += `<span style="color:var(--ink-3);padding:0 4px">…</span>`; html += `<button class="page-btn" data-p="${totalPages}">${totalPages}</button>`; }
+  html += `<button class="page-btn" ${cp===totalPages?'disabled':''} data-p="${cp+1}">►</button></div>`;
+  container.innerHTML = html;
+  container.querySelectorAll('.page-btn').forEach(btn => {
+    if (!btn.disabled) btn.addEventListener('click', () => { state.familiesPage = parseInt(btn.dataset.p); renderFamiliesTable(); });
+  });
+}
+
+// ============================================================
+// EXPORT CSV
+// ============================================================
+function exportCSV() {
+  const rows = state.filteredProjects;
+  const headers = ['Empreendimento', 'Modalidade', 'Região', 'Construtora', 'UH Total', 'UH COHAB', 'UH SEHAB', 'Aprovados', 'Contratos', 'Pendências', 'Termos', 'Selecionados', 'Vagas disponíveis', '% Ocupação'];
+  const csvRows = rows.map(r => {
+    const engajadas = r.uh_total - r.vagas_disponiveis;
+    const pctOcup = r.uh_total ? Math.round((engajadas / r.uh_total) * 100) : 0;
+    return [r.empreendimento, r.modalidade||'', r.dts||'', r.construtora||'', r.uh_total, r.uh_cohab, r.uh_sehab, r.aprovado, r.contrato, r.pendente, r.termo, r.selecionado, r.vagas_disponiveis, pctOcup+'%'];
+  });
+  const csv = [headers, ...csvRows].map(row => row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `empreendimentos_${new Date().toISOString().split('T')[0]}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// AUTO-LOAD (para GitHub Pages ou pasta compartilhada)
+// ============================================================
+async function tryAutoLoad() {
+  try {
+    const response = await fetch('dados.xlsx');
+    if (!response.ok) return false;
+    const ab = await response.arrayBuffer();
+    const data = new Uint8Array(ab);
+    const wb = XLSX.read(data, { type: 'array', cellDates: true });
+    state.workbook = wb;
+    processWorkbook(wb, 'dados.xlsx');
+    return true;
+  } catch (err) { return false; }
+}
+
+// ============================================================
+// EVENTOS
+// ============================================================
+document.getElementById('pick-file-btn').addEventListener('click', () => document.getElementById('file-input').click());
+document.getElementById('file-input').addEventListener('change', e => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
+document.getElementById('btn-change').addEventListener('click', () => document.getElementById('file-input').click());
+document.getElementById('btn-print').addEventListener('click', () => window.print());
+document.getElementById('btn-export').addEventListener('click', exportCSV);
+
+const dropZone = document.getElementById('upload-zone');
+['dragenter', 'dragover'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragging'); }));
+['dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragging'); }));
+dropZone.addEventListener('drop', e => { const files = e.dataTransfer.files; if (files.length > 0) handleFile(files[0]); });
+
+document.getElementById('projects-search').addEventListener('input', e => { state.projectsSearch = e.target.value; applyProjectsFilters(); });
+document.getElementById('families-search').addEventListener('input', e => { state.familiesSearch = e.target.value; state.familiesPage = 1; applyFamiliesFilters(); });
+
+tryAutoLoad();
+</script>
+
+</body>
+</html>
