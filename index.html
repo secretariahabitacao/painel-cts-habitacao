@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Painel CTS — Secretaria de Habitação — Prefeitura de São Paulo</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -35,20 +36,21 @@ html,body{font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;
 main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 
 /* NAV PROGRAMS */
-.program-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:28px}
-.prog-btn{background:var(--surface);border:2px solid var(--line);border-radius:var(--radius);padding:28px 24px;cursor:pointer;transition:all .2s;text-align:left;display:flex;align-items:center;gap:16px;font-family:inherit}
+.program-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:28px}
+.prog-btn{background:var(--surface);border:2px solid var(--line);border-radius:var(--radius);padding:20px;cursor:pointer;transition:all .2s;text-align:left;display:flex;flex-direction:column;gap:12px;font-family:inherit;position:relative;overflow:hidden}
 .prog-btn:hover{border-color:var(--teal);box-shadow:var(--shadow)}
 .prog-btn.active{border-color:var(--teal);background:var(--teal-light)}
 .prog-btn.disabled{opacity:.5;cursor:default;background:var(--bg)}
-.prog-btn .prog-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.prog-btn .prog-top{display:flex;align-items:center;gap:12px}
+.prog-btn .prog-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
 .prog-btn .prog-icon.ppe{background:var(--teal-light);color:var(--teal)}
 .prog-btn .prog-icon.aux{background:var(--blue-light);color:var(--blue)}
 .prog-btn .prog-icon.emg{background:var(--purple-light);color:var(--purple)}
 .prog-btn .prog-icon.ind{background:var(--orange-light);color:var(--orange)}
 .prog-btn .prog-icon.hist{background:var(--slate-light);color:var(--slate)}
-.prog-btn .prog-info h3{font-size:15px;font-weight:700;color:var(--ink)}
-.prog-btn .prog-info p{font-size:12px;color:var(--ink3);margin-top:2px}
-.prog-btn .prog-status{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:4px 10px;border-radius:4px;flex-shrink:0}
+.prog-btn .prog-info h3{font-size:14px;font-weight:700;color:var(--ink)}
+.prog-btn .prog-info p{font-size:11px;color:var(--ink3);margin-top:2px}
+.prog-btn .prog-status{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:4px 10px;border-radius:4px;align-self:flex-start}
 .prog-btn .prog-status.on{background:var(--green-light);color:var(--green)}
 .prog-btn .prog-status.off{background:var(--line-soft);color:var(--ink3)}
 
@@ -77,7 +79,13 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 .kpi .k-value{font-size:26px;font-weight:700;color:var(--ink);line-height:1}
 .kpi .k-detail{font-size:11px;color:var(--ink2);margin-top:4px}
 
-/* CARDS */
+/* CHARTS */
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.chart-box{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);position:relative}
+.chart-box.full{margin-bottom:16px}
+.chart-box canvas{width:100%!important;max-height:400px}
+
+/* CARDS (detail only) */
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;margin-bottom:28px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);transition:box-shadow .15s;cursor:pointer}
 .card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1)}
@@ -149,6 +157,7 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
   .kpi .k-value{font-size:20px}
   .cards{grid-template-columns:1fr}
   .card .c-stats{grid-template-columns:repeat(2,1fr)}
+  .charts-row{grid-template-columns:1fr}
   .f-row{grid-template-columns:110px 1fr 50px}
   .detail-panel .dp-grid{grid-template-columns:1fr 1fr}
 }
@@ -178,28 +187,23 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
   <!-- PROGRAM NAV -->
   <nav class="program-nav" id="prog-nav">
     <button class="prog-btn" data-prog="ppe" onclick="selectProg('ppe')">
-      <div class="prog-icon ppe">🏠</div>
-      <div class="prog-info"><h3>Programa Pode Entrar</h3><p>Empreendimentos, dossiês e contratos</p></div>
+      <div class="prog-top"><div class="prog-icon ppe">🏠</div><div class="prog-info"><h3>Programa Pode Entrar</h3><p>Empreendimentos, dossiês e contratos</p></div></div>
       <span class="prog-status on" id="status-ppe">Ativo</span>
     </button>
     <button class="prog-btn" data-prog="auxilio" onclick="selectProg('auxilio')">
-      <div class="prog-icon aux">💰</div>
-      <div class="prog-info"><h3>Auxílio Aluguel</h3><p>Famílias, pagamentos e acompanhamento</p></div>
+      <div class="prog-top"><div class="prog-icon aux">💰</div><div class="prog-info"><h3>Auxílio Aluguel</h3><p>Famílias, pagamentos e acompanhamento</p></div></div>
       <span class="prog-status off" id="status-auxilio">Em breve</span>
     </button>
     <button class="prog-btn" data-prog="emergencial" onclick="selectProg('emergencial')">
-      <div class="prog-icon emg">🚨</div>
-      <div class="prog-info"><h3>Emergencial</h3><p>Atendimentos emergenciais e remoções</p></div>
+      <div class="prog-top"><div class="prog-icon emg">🚨</div><div class="prog-info"><h3>Emergencial</h3><p>Atendimentos emergenciais e remoções</p></div></div>
       <span class="prog-status off" id="status-emergencial">Em breve</span>
     </button>
     <button class="prog-btn" data-prog="indenizacao" onclick="selectProg('indenizacao')">
-      <div class="prog-icon ind">📋</div>
-      <div class="prog-info"><h3>Indenização</h3><p>Processos indenizatórios e acompanhamento</p></div>
+      <div class="prog-top"><div class="prog-icon ind">📋</div><div class="prog-info"><h3>Indenização</h3><p>Processos indenizatórios</p></div></div>
       <span class="prog-status off" id="status-indenizacao">Em breve</span>
     </button>
     <button class="prog-btn" data-prog="historico" onclick="selectProg('historico')">
-      <div class="prog-icon hist">📊</div>
-      <div class="prog-info"><h3>Histórico de Atendimentos</h3><p>Compilado por ano: UHs entregues, indenizações e mais</p></div>
+      <div class="prog-top"><div class="prog-icon hist">📊</div><div class="prog-info"><h3>Histórico</h3><p>Compilado anual de atendimentos</p></div></div>
       <span class="prog-status off" id="status-historico">Em breve</span>
     </button>
   </nav>
@@ -219,7 +223,14 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
     <div class="view-label" id="view-label"></div>
     <div id="ppe-kpis" class="kpi-row"></div>
     <div id="ppe-detail"></div>
-    <div id="ppe-cards" class="cards"></div>
+    <div id="ppe-charts">
+      <div class="charts-row">
+        <div class="chart-box" id="box-status"><canvas id="chart-status"></canvas></div>
+        <div class="chart-box" id="box-dts"><canvas id="chart-dts"></canvas></div>
+      </div>
+      <div class="chart-box full" id="box-uhs"><canvas id="chart-uhs"></canvas></div>
+      <div class="chart-box full" id="box-obra"><canvas id="chart-obra"></canvas></div>
+    </div>
     <div id="ppe-funil"></div>
   </div>
 
@@ -444,7 +455,6 @@ function renderPPEOverview(){
 
   document.getElementById('view-label').innerHTML=`<span class="crumb">PPE</span> › ${label} <span style="color:var(--ink3);margin-left:8px">${emps.length} empreendimento${emps.length!==1?'s':''}</span>`;
 
-  // KPIs — compute from filtered emps
   const totUH=emps.reduce((s,e)=>s+e.uhTotal,0);
   let totAprov=0,totContrato=0,totPend=0,totTermo=0,totVagas=0;
   emps.forEach(e=>{
@@ -462,57 +472,100 @@ function renderPPEOverview(){
     {l:'Vagas Disponíveis',v:fmt(totVagas),d:'Sem dossiê',c:'warn'},
   ].map(k=>`<div class="kpi ${k.c}"><div class="k-label">${k.l}</div><div class="k-value">${k.v}</div><div class="k-detail">${k.d}</div></div>`).join('');
 
-  // Detail panel hidden
   document.getElementById('ppe-detail').innerHTML='';
+  document.getElementById('ppe-charts').style.display='block';
 
-  // Cards
-  document.getElementById('ppe-cards').innerHTML=emps.map(e=>{
-    const ov=num(e.pctObra);const op=ov>0?(ov<=1.5?ov*100:ov):null;
-    const oc=op===null?'zero':op>=95?'high':op>=60?'mid':'low';
-    const aprov=(e.q?e.q.aprov:e.aprovTotal)||0;
-    const contr=(e.q?e.q.contrato:0);
-    const pend=(e.q?e.q.pend:e.pendTotal)||0;
-    const vagas=Math.max(0,e.vagasTotal||0);
-    return `<div class="card" onclick="S.view.emp='${e.nome.replace(/'/g,"\\'")}';document.getElementById('sel-emp').value=S.view.emp;updatePPEView();">
-      <div class="c-head"><div class="c-name">${e.nome}</div><span class="badge teal">${e.dts||'—'}</span></div>
-      <div class="c-obra"><div class="obra-lbl"><span>Obra</span><strong>${op!==null?op.toFixed(0)+'%':'—'}</strong></div><div class="obra-bar"><div class="fill ${oc}" style="width:${op!==null?Math.min(100,op):0}%"></div></div></div>
-      <div class="c-stats">
-        <div class="c-stat"><div class="v">${fmt(e.uhTotal)}</div><div class="l">UHs</div></div>
-        <div class="c-stat green"><div class="v">${fmt(aprov+contr)}</div><div class="l">Aprov+Contr</div></div>
-        <div class="c-stat ${pend>0?'red':''}"><div class="v">${fmt(pend)}</div><div class="l">Pendentes</div></div>
-        <div class="c-stat gold"><div class="v">${fmt(vagas)}</div><div class="l">Vagas</div></div>
-      </div>
-      <div class="c-dates">
-        <div><div class="c-dt-lbl">Assembleia</div><div class="c-dt-val">${fmtDateShort(e.dataAssembleia)}</div></div>
-        <div><div class="c-dt-lbl">Entrega</div><div class="c-dt-val">${fmtDateShort(e.entrega)}</div></div>
-      </div>
-      ${e.construtora&&e.construtora!=='-'&&e.construtora!=='0'?`<div class="c-const">${e.construtora}</div>`:''}
-    </div>`;
-  }).join('');
+  // Destroy previous charts
+  if(window._charts){window._charts.forEach(c=>c.destroy());}
+  window._charts=[];
 
-  // Funil (only if showing all or regional)
+  // Reset canvases
+  ['chart-status','chart-dts','chart-uhs','chart-obra'].forEach(id=>{
+    const box=document.getElementById(id).parentElement;
+    box.innerHTML=`<canvas id="${id}"></canvas>`;
+  });
+
+  const teal='#009999',green='#1B7A3D',gold='#C9A227',red='#CC3333';
+
+  // --- CHART 1: Status dos Dossiês (Doughnut) ---
   let funilData;
   if(S.view.dts){
-    funilData={termo:0,selec:0,dossie:0,aprov:0,contrato:0,pend:0,reprov:0,desist:0,desclass:0,demExc:0};
+    funilData={termo:0,selec:0,dossie:0,aprov:0,contrato:0,pend:0,reprov:0,desist:0};
     emps.forEach(e=>{if(e.q){Object.keys(funilData).forEach(k=>{funilData[k]+=(e.q[k]||0);});}});
-  } else {
-    funilData=S.ppe.quantTotals;
-  }
-  const funilItems=[
-    {l:'Termo de Vinculação',v:funilData.termo||0,c:'var(--teal)'},
-    {l:'Aprovados',v:funilData.aprov||0,c:'var(--green)'},
-    {l:'Selecionados',v:funilData.selec||0,c:'#5BADA7'},
-    {l:'Contrato Assinado',v:funilData.contrato||0,c:'#1B7A3D'},
-    {l:'Dossiê Enviado',v:funilData.dossie||0,c:'#6FB7C1'},
-    {l:'Pendência',v:funilData.pend||0,c:'var(--gold)'},
-    {l:'Desistência/Transf.',v:funilData.desist||0,c:'#D48A2E'},
-    {l:'Reprovados',v:funilData.reprov||0,c:'var(--red)'},
-  ].filter(i=>i.v>0);
-  const fmax=Math.max(...funilItems.map(i=>i.v),1);
+  } else { funilData=S.ppe.quantTotals; }
 
-  document.getElementById('ppe-funil').innerHTML=`<div class="funil-section"><h3>Funil de Dossiês</h3>
-    ${funilItems.map(i=>`<div class="f-row"><div class="f-lbl">${i.l}</div><div class="f-bar-w"><div class="f-bar" style="width:${(i.v/fmax)*100}%;background:${i.c}"></div></div><div class="f-ct">${fmt(i.v)}</div></div>`).join('')}
-  </div>`;
+  const statusData=[
+    {l:'Termo de Vinculação',v:funilData.termo||0,c:teal},
+    {l:'Aprovados',v:funilData.aprov||0,c:green},
+    {l:'Contrato Assinado',v:funilData.contrato||0,c:'#2D8B4E'},
+    {l:'Selecionados',v:funilData.selec||0,c:'#5BADA7'},
+    {l:'Pendência',v:funilData.pend||0,c:gold},
+    {l:'Desistência/Transf.',v:funilData.desist||0,c:'#D48A2E'},
+    {l:'Reprovados',v:funilData.reprov||0,c:red},
+    {l:'Dossiê Enviado',v:funilData.dossie||0,c:'#6FB7C1'},
+  ].filter(i=>i.v>0);
+
+  window._charts.push(new Chart(document.getElementById('chart-status'),{
+    type:'doughnut',
+    data:{labels:statusData.map(i=>i.l),datasets:[{data:statusData.map(i=>i.v),backgroundColor:statusData.map(i=>i.c),borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:true,plugins:{title:{display:true,text:'Status dos Dossiês',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyleWidth:8}}}}
+  }));
+
+  // --- CHART 2: UHs por DTS (Doughnut) ---
+  const dtsCounts={};
+  emps.forEach(e=>{if(e.dts)dtsCounts[e.dts]=(dtsCounts[e.dts]||0)+e.uhTotal;});
+  const dtsArr=Object.entries(dtsCounts).sort((a,b)=>b[1]-a[1]);
+  const dtsColors=['#009999','#2D8B4E','#C9A227','#2B6CB0','#6B46C1','#C05621','#CC3333','#5BADA7'];
+
+  window._charts.push(new Chart(document.getElementById('chart-dts'),{
+    type:'doughnut',
+    data:{labels:dtsArr.map(d=>d[0]),datasets:[{data:dtsArr.map(d=>d[1]),backgroundColor:dtsColors.slice(0,dtsArr.length),borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:true,plugins:{title:{display:true,text:'UHs por Regional (DTS)',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyleWidth:8}}}}
+  }));
+
+  // --- CHART 3: UHs por Empreendimento (Horizontal Bar) ---
+  const empsSorted=[...emps].sort((a,b)=>b.uhTotal-a.uhTotal).slice(0,25);
+  const empNames=empsSorted.map(e=>e.nome.length>35?e.nome.slice(0,32)+'…':e.nome);
+  const empAprov=empsSorted.map(e=>(e.q?e.q.aprov:e.aprovTotal)||0);
+  const empContr=empsSorted.map(e=>(e.q?e.q.contrato:0));
+  const empPend=empsSorted.map(e=>(e.q?e.q.pend:e.pendTotal)||0);
+  const empRest=empsSorted.map((e,i)=>Math.max(0,e.uhTotal-empAprov[i]-empContr[i]-empPend[i]));
+
+  window._charts.push(new Chart(document.getElementById('chart-uhs'),{
+    type:'bar',
+    data:{labels:empNames,datasets:[
+      {label:'Contrato Assinado',data:empContr,backgroundColor:'#2D8B4E'},
+      {label:'Aprovados',data:empAprov,backgroundColor:green},
+      {label:'Pendentes',data:empPend,backgroundColor:gold},
+      {label:'Outros',data:empRest,backgroundColor:'#DDD'},
+    ]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      onClick:(evt,elements)=>{if(elements.length>0){const i=elements[0].index;S.view.emp=empsSorted[i].nome;document.getElementById('sel-emp').value=S.view.emp;updatePPEView();}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:11,family:'Arial'}}},y:{stacked:true,grid:{display:false},ticks:{font:{size:11,family:'Arial'}}}},
+      plugins:{title:{display:true,text:'UHs por Empreendimento (clique para detalhar)',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'top',labels:{font:{size:11,family:'Arial'},usePointStyle:true,pointStyleWidth:8,padding:16}}}}
+  }));
+  document.getElementById('chart-uhs').parentElement.style.height=Math.max(300,empsSorted.length*28+80)+'px';
+
+  // --- CHART 4: % Obra por Empreendimento (Horizontal Bar) ---
+  const empsObra=emps.filter(e=>{const v=num(e.pctObra);return v>0;}).map(e=>{const v=num(e.pctObra);return{nome:e.nome,pct:v<=1.5?v*100:v};}).sort((a,b)=>a.pct-b.pct);
+
+  if(empsObra.length>0){
+    document.getElementById('box-obra').style.display='block';
+    window._charts.push(new Chart(document.getElementById('chart-obra'),{
+      type:'bar',
+      data:{labels:empsObra.map(e=>e.nome.length>35?e.nome.slice(0,32)+'…':e.nome),datasets:[{label:'% Obra',data:empsObra.map(e=>e.pct),backgroundColor:empsObra.map(e=>e.pct>=95?green:e.pct>=60?teal:gold),borderRadius:3}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        onClick:(evt,elements)=>{if(elements.length>0){const i=elements[0].index;S.view.emp=empsObra[i].nome;document.getElementById('sel-emp').value=S.view.emp;updatePPEView();}},
+        scales:{x:{max:100,grid:{display:false},ticks:{callback:v=>v+'%',font:{size:11,family:'Arial'}}},y:{grid:{display:false},ticks:{font:{size:11,family:'Arial'}}}},
+        plugins:{title:{display:true,text:'Evolução de Obra por Empreendimento (clique para detalhar)',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}}}
+    }));
+    document.getElementById('chart-obra').parentElement.style.height=Math.max(250,empsObra.length*28+80)+'px';
+  } else {
+    document.getElementById('box-obra').style.display='none';
+  }
+
+  // Hide old funil (now using chart)
+  document.getElementById('ppe-funil').innerHTML='';
 }
 
 // ============================================================
@@ -522,6 +575,10 @@ function renderEmpDetail(){
   const emp=S.ppe.emps.find(e=>e.nome===S.view.emp);
   if(!emp){renderPPEOverview();return;}
   const q=emp.q||{};
+
+  // Hide overview charts
+  document.getElementById('ppe-charts').style.display='none';
+  if(window._charts){window._charts.forEach(c=>c.destroy());window._charts=[];}
 
   document.getElementById('view-label').innerHTML=`<span class="crumb" style="cursor:pointer" onclick="S.view.emp='';updatePPEView();">PPE</span> › <span class="crumb" style="cursor:pointer" onclick="S.view.emp='';updatePPEView();">${emp.dts||'Geral'}</span> › ${emp.nome}`;
 
