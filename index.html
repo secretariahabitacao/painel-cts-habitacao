@@ -14,6 +14,8 @@
   --gold:#C9A227;--gold-light:#FDF6E3;
   --blue:#2B6CB0;--blue-light:#EBF4FF;
   --purple:#6B46C1;--purple-light:#F3EEFF;
+  --orange:#C05621;--orange-light:#FFF3E6;
+  --slate:#4A5568;--slate-light:#EDF2F7;
   --ink:#1A1A1A;--ink2:#4A4A4A;--ink3:#888;
   --line:#DDD;--line-soft:#EFEFEF;--bg:#F5F5F5;--surface:#FFF;
   --radius:8px;--shadow:0 2px 8px rgba(0,0,0,.06);
@@ -42,6 +44,8 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 .prog-btn .prog-icon.ppe{background:var(--teal-light);color:var(--teal)}
 .prog-btn .prog-icon.aux{background:var(--blue-light);color:var(--blue)}
 .prog-btn .prog-icon.emg{background:var(--purple-light);color:var(--purple)}
+.prog-btn .prog-icon.ind{background:var(--orange-light);color:var(--orange)}
+.prog-btn .prog-icon.hist{background:var(--slate-light);color:var(--slate)}
 .prog-btn .prog-info h3{font-size:15px;font-weight:700;color:var(--ink)}
 .prog-btn .prog-info p{font-size:12px;color:var(--ink3);margin-top:2px}
 .prog-btn .prog-status{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:4px 10px;border-radius:4px;flex-shrink:0}
@@ -188,6 +192,16 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
       <div class="prog-info"><h3>Emergencial</h3><p>Atendimentos emergenciais e remoções</p></div>
       <span class="prog-status off" id="status-emergencial">Em breve</span>
     </button>
+    <button class="prog-btn" data-prog="indenizacao" onclick="selectProg('indenizacao')">
+      <div class="prog-icon ind">📋</div>
+      <div class="prog-info"><h3>Indenização</h3><p>Processos indenizatórios e acompanhamento</p></div>
+      <span class="prog-status off" id="status-indenizacao">Em breve</span>
+    </button>
+    <button class="prog-btn" data-prog="historico" onclick="selectProg('historico')">
+      <div class="prog-icon hist">📊</div>
+      <div class="prog-info"><h3>Histórico de Atendimentos</h3><p>Compilado por ano: UHs entregues, indenizações e mais</p></div>
+      <span class="prog-status off" id="status-historico">Em breve</span>
+    </button>
   </nav>
 
   <!-- PPE CONTENT -->
@@ -228,6 +242,26 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
       <input type="file" id="file-emergencial" accept=".xlsx,.xls" style="display:none">
     </div>
   </div>
+
+  <!-- INDENIZAÇÃO CONTENT -->
+  <div class="prog-content" id="prog-indenizacao">
+    <div class="placeholder">
+      <h2>Indenização</h2>
+      <p>Carregue a planilha de processos indenizatórios para visualizar os dados.</p>
+      <button class="ph-btn" onclick="uploadFor('indenizacao')">Carregar planilha</button>
+      <input type="file" id="file-indenizacao" accept=".xlsx,.xls" style="display:none">
+    </div>
+  </div>
+
+  <!-- HISTÓRICO CONTENT -->
+  <div class="prog-content" id="prog-historico">
+    <div class="placeholder">
+      <h2>Histórico de Atendimentos</h2>
+      <p>Compilado anual de atendimentos da Coordenadoria: unidades habitacionais entregues, indenizações e demais modalidades. Carregue a planilha para visualizar.</p>
+      <button class="ph-btn" onclick="uploadFor('historico')">Carregar planilha</button>
+      <input type="file" id="file-historico" accept=".xlsx,.xls" style="display:none">
+    </div>
+  </div>
 </main>
 
 <script>
@@ -239,6 +273,8 @@ const S = {
   ppe: { emps: [], quantTotals: {}, quantMap: {}, loaded: false },
   auxilio: { loaded: false, data: null },
   emergencial: { loaded: false, data: null },
+  indenizacao: { loaded: false, data: null },
+  historico: { loaded: false, data: null },
   view: { dts: '', emp: '' }
 };
 
@@ -592,7 +628,9 @@ async function autoLoad(){
   const files=[
     {name:'dados-ppe.xlsx',prog:'ppe'},{name:'dados.xlsx',prog:'ppe'},
     {name:'dados-auxilio.xlsx',prog:'auxilio'},
-    {name:'dados-emergencial.xlsx',prog:'emergencial'}
+    {name:'dados-emergencial.xlsx',prog:'emergencial'},
+    {name:'dados-indenizacao.xlsx',prog:'indenizacao'},
+    {name:'dados-historico.xlsx',prog:'historico'}
   ];
   for(const f of files){
     try{
