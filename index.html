@@ -521,6 +521,7 @@ function updateEmpSelector(){
   let list=S.ppe.emps;
   if(S.view.programa) list=list.filter(e=>e.programa===S.view.programa);
   if(S.view.dts) list=list.filter(e=>e.dts===S.view.dts);
+  list=[...list].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
   const empEl=document.getElementById('sel-emp');
   empEl.innerHTML='<option value="">Panorama geral'+(S.view.dts?' — '+S.view.dts:'')+'</option>'+
     list.map(e=>`<option value="${e.nome}">${e.nome}</option>`).join('');
