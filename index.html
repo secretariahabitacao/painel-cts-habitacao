@@ -268,12 +268,17 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 
   <!-- EMERGENCIAL CONTENT -->
   <div class="prog-content" id="prog-emergencial">
-    <div class="placeholder">
-      <h2>Emergencial</h2>
-      <p>Carregue a planilha do programa Emergencial para visualizar os dados.</p>
-      <button class="ph-btn" onclick="uploadFor('emergencial')">Carregar planilha</button>
-      <input type="file" id="file-emergencial" accept=".xlsx,.xls" style="display:none">
+    <div class="selectors" id="emg-filters">
+      <div class="sel-group"><label>Período — De</label><input type="date" id="emg-dt-ini"></div>
+      <div class="sel-group"><label>Até</label><input type="date" id="emg-dt-fim"></div>
+      <div class="sel-group"><label>Evento</label><select id="emg-evento"><option value="">Todos</option></select></div>
+      <div class="sel-group"><label>Regional</label><select id="emg-reg"><option value="">Todas</option></select></div>
+      <div class="sel-group search-group"><label>Nº SEI / Processo</label><input type="text" id="emg-sei" placeholder="Ex: 6054.2023/..."></div>
     </div>
+    <div class="view-label" id="emg-label"></div>
+    <div id="emg-kpis" class="kpi-row"></div>
+    <div id="emg-charts"></div>
+    <div id="emg-table-section"></div>
   </div>
 
   <!-- INDENIZAÇÃO CONTENT -->
@@ -443,6 +448,7 @@ function selectProg(prog) {
   document.querySelectorAll('.prog-content').forEach(c=>c.classList.toggle('active',c.id==='prog-'+prog));
 
   if(prog==='ppe'&&S.ppe.loaded){renderPPE();}
+  if(prog==='emergencial'&&S.emergencial.loaded){renderEmergencial();}
 }
 
 // ============================================================
@@ -763,6 +769,191 @@ function exportDevolutivas(){
 }
 
 // ============================================================
+// EMERGENCIAL
+// ============================================================
+function parseEmergencial(wb){
+  const records=[];
+  // Find the data sheet (largest one with ORDEM header)
+  let sheetName=null;
+  for(const name of wb.SheetNames){
+    const raw=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:null,blankrows:false});
+    if(raw.some(r=>r&&r.some(c=>String(c||'')==='ORDEM'))){sheetName=name;break;}
+  }
+  if(!sheetName)return;
+  const raw=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:null,blankrows:false});
+  let hIdx=raw.findIndex(r=>r&&r.some(c=>String(c||'')==='ORDEM'));
+  if(hIdx<0)return;
+  for(let i=hIdx+1;i<raw.length;i++){
+    const r=raw[i];if(!r||!r[0])continue;
+    let dtOc=r[1],dtAt=r[8];
+    if(typeof dtOc==='number'&&dtOc>30000)dtOc=new Date((dtOc-25569)*86400*1000);
+    if(typeof dtAt==='number'&&dtAt>30000)dtAt=new Date((dtAt-25569)*86400*1000);
+    records.push({
+      ordem:r[0],dataOcorrencia:dtOc,evento:r[2]||'',complemento:r[3]||'',
+      nomeArea:r[4]||'',regional:r[5]||'',subprefeitura:r[6]||'',
+      sei:r[7]||'',dataAtendimento:dtAt,nome:r[9]||'',
+      cpf:r[10]||'',cartao:r[11]||'',obs:r[12]||'',
+      situacaoCpf:r[13]||'',status:r[15]||''
+    });
+  }
+  S.emergencial={records,loaded:true};
+}
+
+function renderEmergencial(){
+  const recs=S.emergencial.records;
+  if(!recs||!recs.length)return;
+  // Populate filter dropdowns
+  const evSet=[...new Set(recs.map(r=>r.evento).filter(Boolean))].sort();
+  const regSet=[...new Set(recs.map(r=>r.regional).filter(Boolean))].sort();
+  const evEl=document.getElementById('emg-evento');
+  evEl.innerHTML='<option value="">Todos ('+evSet.length+')</option>'+evSet.map(e=>`<option value="${e}">${e}</option>`).join('');
+  const regEl=document.getElementById('emg-reg');
+  regEl.innerHTML='<option value="">Todas ('+regSet.length+')</option>'+regSet.map(r=>`<option value="${r}">${r}</option>`).join('');
+  // Set date range defaults
+  const dates=recs.map(r=>r.dataOcorrencia).filter(d=>d instanceof Date).sort((a,b)=>a-b);
+  if(dates.length){
+    document.getElementById('emg-dt-ini').value=dates[0].toISOString().split('T')[0];
+    document.getElementById('emg-dt-fim').value=dates[dates.length-1].toISOString().split('T')[0];
+  }
+  // Events
+  ['emg-evento','emg-reg','emg-dt-ini','emg-dt-fim'].forEach(id=>{
+    document.getElementById(id).onchange=filterEmergencial;
+  });
+  document.getElementById('emg-sei').oninput=filterEmergencial;
+  filterEmergencial();
+}
+
+function filterEmergencial(){
+  const recs=S.emergencial.records;
+  const fEv=document.getElementById('emg-evento').value;
+  const fReg=document.getElementById('emg-reg').value;
+  const fSei=document.getElementById('emg-sei').value.toLowerCase();
+  const fDtIni=document.getElementById('emg-dt-ini').value?new Date(document.getElementById('emg-dt-ini').value+'T00:00:00'):null;
+  const fDtFim=document.getElementById('emg-dt-fim').value?new Date(document.getElementById('emg-dt-fim').value+'T23:59:59'):null;
+
+  let filtered=recs.filter(r=>{
+    if(fEv&&r.evento!==fEv)return false;
+    if(fReg&&r.regional!==fReg)return false;
+    if(fSei&&!String(r.sei).toLowerCase().includes(fSei))return false;
+    if(fDtIni&&r.dataOcorrencia instanceof Date&&r.dataOcorrencia<fDtIni)return false;
+    if(fDtFim&&r.dataOcorrencia instanceof Date&&r.dataOcorrencia>fDtFim)return false;
+    return true;
+  });
+
+  document.getElementById('emg-label').innerHTML=`<span class="crumb">Emergencial</span> › ${filtered.length.toLocaleString('pt-BR')} atendimento${filtered.length!==1?'s':''} encontrado${filtered.length!==1?'s':''}`;
+
+  // KPIs
+  const evCounts={};const regCounts={};const yrCounts={};const areaCounts={};
+  filtered.forEach(r=>{
+    evCounts[r.evento]=(evCounts[r.evento]||0)+1;
+    regCounts[r.regional]=(regCounts[r.regional]||0)+1;
+    if(r.dataOcorrencia instanceof Date)yrCounts[r.dataOcorrencia.getFullYear()]=(yrCounts[r.dataOcorrencia.getFullYear()]||0)+1;
+    if(r.nomeArea)areaCounts[r.nomeArea]=(areaCounts[r.nomeArea]||0)+1;
+  });
+  const topEvento=Object.entries(evCounts).sort((a,b)=>b[1]-a[1])[0];
+  const topRegional=Object.entries(regCounts).sort((a,b)=>b[1]-a[1])[0];
+  const areasAfetadas=Object.keys(areaCounts).length;
+  const processosUnicos=new Set(filtered.map(r=>r.sei).filter(Boolean)).size;
+
+  document.getElementById('emg-kpis').innerHTML=[
+    {l:'Atendimentos',v:fmt(filtered.length),d:'Famílias atendidas',c:''},
+    {l:'Processos (SEI)',v:fmt(processosUnicos),d:'Ocorrências únicas',c:''},
+    {l:'Áreas Afetadas',v:fmt(areasAfetadas),d:'Locais distintos',c:'warn'},
+    {l:'Principal Evento',v:topEvento?topEvento[0]:'—',d:topEvento?fmt(topEvento[1])+' atendimentos':'',c:'alert'},
+    {l:'Principal Regional',v:topRegional?topRegional[0]:'—',d:topRegional?fmt(topRegional[1])+' atendimentos':'',c:''},
+  ].map(k=>`<div class="kpi ${k.c}"><div class="k-label">${k.l}</div><div class="k-value" style="font-size:${k.l==='Principal Evento'?'16px':'26px'}">${k.v}</div><div class="k-detail">${k.d}</div></div>`).join('');
+
+  // Charts
+  if(window._emgCharts){window._emgCharts.forEach(c=>c.destroy());}
+  window._emgCharts=[];
+
+  const teal='#009999',green='#1B7A3D',gold='#C9A227',red='#CC3333';
+  const evColors={'ENCHENTE':teal,'INCÊNDIO':'#CC3333','DESABAMENTO':'#C05621','QUEDA DE ÁRVORE':'#2D8B4E','DESLIZAMENTO':'#C9A227','SOLAPAMENTO':'#6B46C1','DESTELHAMENTO':'#2B6CB0','RISCO':'#888'};
+
+  // Chart containers
+  document.getElementById('emg-charts').innerHTML=`
+    <div class="charts-row">
+      <div class="chart-box"><canvas id="emg-chart-ev"></canvas></div>
+      <div class="chart-box"><canvas id="emg-chart-reg"></canvas></div>
+    </div>
+    <div class="chart-box full" style="margin-bottom:16px"><canvas id="emg-chart-timeline"></canvas></div>`;
+
+  // Bar chart: eventos
+  const evSorted=Object.entries(evCounts).sort((a,b)=>b[1]-a[1]);
+  window._emgCharts.push(new Chart(document.getElementById('emg-chart-ev'),{
+    type:'bar',
+    data:{labels:evSorted.map(e=>e[0]),datasets:[{data:evSorted.map(e=>e[1]),backgroundColor:evSorted.map(e=>evColors[e[0]]||'#999'),borderRadius:4}]},
+    options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Tipo de Evento',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
+      scales:{y:{grid:{display:false},ticks:{font:{size:11,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:10,family:'Arial'},maxRotation:45}}}}
+  }));
+
+  // Doughnut: regionais
+  const regSorted=Object.entries(regCounts).sort((a,b)=>b[1]-a[1]);
+  const regColors=[teal,green,gold,'#2B6CB0','#6B46C1','#C05621','#CC3333','#888'];
+  window._emgCharts.push(new Chart(document.getElementById('emg-chart-reg'),{
+    type:'doughnut',
+    data:{labels:regSorted.map(r=>r[0]),datasets:[{data:regSorted.map(r=>r[1]),backgroundColor:regColors.slice(0,regSorted.length),borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,plugins:{title:{display:true,text:'Distribuição por Regional',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}
+  }));
+
+  // Timeline: atendimentos por mês
+  const monthCounts={};
+  filtered.forEach(r=>{
+    if(r.dataOcorrencia instanceof Date){
+      const key=r.dataOcorrencia.getFullYear()+'-'+String(r.dataOcorrencia.getMonth()+1).padStart(2,'0');
+      monthCounts[key]=(monthCounts[key]||0)+1;
+    }
+  });
+  const months=Object.keys(monthCounts).sort();
+  const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const monthLabels=months.map(m=>{const[y,mo]=m.split('-');return meses[parseInt(mo)-1]+'/'+y.slice(2);});
+
+  window._emgCharts.push(new Chart(document.getElementById('emg-chart-timeline'),{
+    type:'bar',
+    data:{labels:monthLabels,datasets:[{data:months.map(m=>monthCounts[m]),backgroundColor:teal,borderRadius:3}]},
+    options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Mês',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
+      scales:{y:{grid:{color:'var(--line-soft)'},ticks:{font:{size:11,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:10,family:'Arial'},maxRotation:45}}}}
+  }));
+
+  // Table
+  const pageSize=100;
+  const shown=filtered.slice(0,pageSize);
+  document.getElementById('emg-table-section').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;flex-wrap:wrap;gap:8px">
+      <span style="font-size:12px;color:var(--ink3)">${filtered.length>pageSize?'Mostrando '+pageSize+' de ':''}${fmt(filtered.length)} registros</span>
+      <button class="btn" onclick="exportEmergencial()">Exportar Excel</button>
+    </div>
+    <div class="dev-records"><table>
+      <thead><tr><th>Data Ocorr.</th><th>Evento</th><th>Área</th><th>Regional</th><th>Subprefeitura</th><th>Nº SEI</th><th>Beneficiário</th><th>Data Atend.</th><th>Status</th></tr></thead>
+      <tbody>${shown.map(r=>`<tr>
+        <td>${r.dataOcorrencia instanceof Date?r.dataOcorrencia.toLocaleDateString('pt-BR'):'—'}</td>
+        <td><span class="dev-badge ${r.evento==='ENCHENTE'?'outros':r.evento==='INCÊNDIO'?'excluido':'pendente'}" style="background:${(evColors[r.evento]||'#999')+'22'};color:${evColors[r.evento]||'#999'}">${r.evento}</span></td>
+        <td>${r.nomeArea||'—'}</td>
+        <td>${r.regional||'—'}</td>
+        <td>${r.subprefeitura||'—'}</td>
+        <td style="font-size:11px">${r.sei||'—'}</td>
+        <td>${r.nome||'—'}</td>
+        <td>${r.dataAtendimento instanceof Date?r.dataAtendimento.toLocaleDateString('pt-BR'):'—'}</td>
+        <td>${r.status||'—'}</td>
+      </tr>`).join('')}
+      ${filtered.length>pageSize?`<tr><td colspan="9" style="text-align:center;color:var(--ink3);padding:12px">Exporte para ver todos os ${fmt(filtered.length)} registros.</td></tr>`:''}
+      </tbody></table></div>`;
+
+  // Store for export
+  window._emgFiltered=filtered;
+}
+
+function exportEmergencial(){
+  const filtered=window._emgFiltered||[];
+  const headers=['Ordem','Data Ocorrência','Evento','Complemento','Área','Regional','Subprefeitura','Nº SEI','Data Atendimento','Nome Beneficiário','CPF','Nº Cartão','Observação','Situação CPF','Status'];
+  const rows=filtered.map(r=>[r.ordem,r.dataOcorrencia instanceof Date?r.dataOcorrencia.toLocaleDateString('pt-BR'):'',r.evento,r.complemento,r.nomeArea,r.regional,r.subprefeitura,r.sei,r.dataAtendimento instanceof Date?r.dataAtendimento.toLocaleDateString('pt-BR'):'',r.nome,r.cpf,r.cartao,r.obs,r.situacaoCpf,r.status]);
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Emergencial');
+  XLSX.writeFile(wb,`emergencial_filtrado_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+
+// ============================================================
 // FILE HANDLING
 // ============================================================
 function handleFile(file, prog) {
@@ -771,8 +962,10 @@ function handleFile(file, prog) {
     try{
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
       if(prog==='ppe'){parsePPE(wb);document.getElementById('status-ppe').className='prog-status on';document.getElementById('status-ppe').textContent='Ativo';}
+      if(prog==='emergencial'){parseEmergencial(wb);document.getElementById('status-emergencial').className='prog-status on';document.getElementById('status-emergencial').textContent='Ativo';}
       if(S.activeProg===prog){
         if(prog==='ppe') renderPPE();
+        if(prog==='emergencial') renderEmergencial();
       }
     }catch(err){alert('Erro ao ler: '+err.message);}
   };
@@ -808,6 +1001,7 @@ async function autoLoad(){
       const buf=await r.arrayBuffer();
       const wb=XLSX.read(new Uint8Array(buf),{type:'array',cellDates:true});
       if(f.prog==='ppe'){parsePPE(wb);document.getElementById('status-ppe').className='prog-status on';document.getElementById('status-ppe').textContent='Ativo';}
+      if(f.prog==='emergencial'){parseEmergencial(wb);document.getElementById('status-emergencial').className='prog-status on';document.getElementById('status-emergencial').textContent='Ativo';}
     }catch(e){}
   }
   selectProg('ppe');
