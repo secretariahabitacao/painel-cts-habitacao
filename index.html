@@ -386,67 +386,82 @@ function fmtDateShort(v) {
 // PARSE PPE
 // ============================================================
 function parsePPE(wb) {
-  const emps=[];const quantMap={};let quantTotals={};
+  const emps=[];let quantTotals={};
 
-  const pName=wb.SheetNames.find(n=>n.toLowerCase().includes('painel'));
-  if (pName) {
-    const raw=XLSX.utils.sheet_to_json(wb.Sheets[pName],{header:1,defval:null,blankrows:false});
-    let hIdx=raw.findIndex(r=>r&&String(r[0]||'').trim()==='Empreendimento');
-    if(hIdx<0)hIdx=0;
-    for(let i=hIdx+2;i<raw.length;i++){
-      const r=raw[i];if(!r||!r[0]||!String(r[0]).trim())continue;
-      const nome=String(r[0]).trim();if(nome==='TOTAL'||nome==='Total')continue;
-      emps.push({nome,modalidade:normMod(r[1]),programa:modToPrograma(normMod(r[1])),subpref:r[2]||'',dts:r[4]||'',
-        endereco:r[5]||'',construtora:r[6]||'',contatos:r[7]||'',
-        pctObra:r[9],dataEvento:r[10],origemDemanda:r[11],
-        uhCohab:num(r[12]),uhSehab:num(r[13]),uhTotal:num(r[14]),
-        totalDossies:num(r[15]),
-        aprovCohab:num(r[16]),aprovSehab:num(r[17]),aprovTotal:num(r[18]),aprovPct:r[19],
-        pendCohab:num(r[20]),pendSehab:num(r[21]),pendTotal:num(r[22]),
-        vagasCohab:num(r[29]),vagasSehab:num(r[30]),vagasTotal:num(r[31]),
-        obs:r[35]||'',dataEscolha:r[36],dataAssembleia:r[37],cnpjEmitido:r[38],entrega:r[39]
-      });
-    }
-  }
-
+  // --- QUANTITATIVO (fonte única) ---
   const qName=wb.SheetNames.find(n=>n.toLowerCase().includes('quantitativo'));
   if(qName){
-    const raw=XLSX.utils.sheet_to_json(wb.Sheets[qName],{header:1,defval:null,blankrows:false});
-    let hIdx=raw.findIndex(r=>r&&r.some(c=>String(c||'').trim()==='Empreendimento'));
-    if(hIdx<0)hIdx=0;
-    let subIdx=hIdx+1;
-    for(let j=hIdx+1;j<Math.min(hIdx+4,raw.length);j++){if(raw[j]&&raw[j].some(c=>String(c||'').trim()==='COHAB')){subIdx=j;break;}}
+    const raw=XLSX.utils.sheet_to_json(wb.Sheets[qName],{header:1,defval:null});
+    // Encontra a linha com COHAB/SEHAB (sub-header)
+    let subIdx=-1;
+    for(let j=0;j<Math.min(10,raw.length);j++){
+      if(raw[j]&&raw[j].some(c=>String(c||'')==='COHAB')&&raw[j].some(c=>String(c||'')==='DTS')){subIdx=j;break;}
+    }
+    if(subIdx<0){
+      for(let j=0;j<Math.min(10,raw.length);j++){
+        if(raw[j]&&raw[j].filter(c=>String(c||'')==='COHAB').length>=2){subIdx=j;break;}
+      }
+    }
+    if(subIdx<0) subIdx=3; // fallback
+
     for(let i=subIdx+1;i<raw.length;i++){
       const r=raw[i];if(!r)continue;
-      const nome=String(r[0]||'').trim();if(!nome)continue;
-      const e={uhCohab:num(r[1]),uhSehab:num(r[2]),uhTotal:num(r[3]),dts:r[4]||'',
-        termoCohab:num(r[5]),termoSehab:num(r[6]),selecCohab:num(r[7]),selecSehab:num(r[8]),
-        dossieCohab:num(r[9]),dossieSehab:num(r[10]),aprovCohab:num(r[11]),aprovSehab:num(r[12]),
-        contratoCohab:num(r[13]),contratoSehab:num(r[14]),reprovCohab:num(r[15]),reprovSehab:num(r[16]),
-        ausentCohab:num(r[17]),ausentSehab:num(r[18]),pendCohab:num(r[19]),pendSehab:num(r[20]),
-        desistCohab:num(r[21]),desistSehab:num(r[22]),desclassCohab:num(r[23]),desclassSehab:num(r[24]),
-        demExcCohab:num(r[25]),demExcSehab:num(r[26]),total:num(r[27])};
+      const nome=String(r[0]||'').trim();
+      if(!nome||nome==='TOTAL'||nome==='Total')continue;
+
+      const mod=normMod(r[1]);
+      const e={
+        nome:nome,modalidade:mod,programa:modToPrograma(mod),
+        endereco:r[2]||'',construtora:r[3]||'',contatos:r[4]||'',
+        pctObra:r[5],
+        uhCohab:num(r[6]),uhSehab:num(r[7]),uhTotal:num(r[8]),
+        dts:r[9]||'',
+        termoCohab:num(r[10]),termoSehab:num(r[11]),
+        selecCohab:num(r[12]),selecSehab:num(r[13]),
+        dossieCohab:num(r[14]),dossieSehab:num(r[15]),
+        aprovCohab:num(r[16]),aprovSehab:num(r[17]),
+        contratoCohab:num(r[18]),contratoSehab:num(r[19]),
+        reprovCohab:num(r[20]),reprovSehab:num(r[21]),
+        ausentCohab:num(r[22]),ausentSehab:num(r[23]),
+        pendCohab:num(r[24]),pendSehab:num(r[25]),
+        desistCohab:num(r[26]),desistSehab:num(r[27]),
+        desclassCohab:num(r[28]),desclassSehab:num(r[29]),
+        demExcCohab:num(r[30]),demExcSehab:num(r[31]),
+        total:num(r[32]),
+        dataEscolha:r[33],dataAssembleia:r[34],cnpjEmitido:r[35],entrega:r[36]
+      };
       ['termo','selec','dossie','aprov','contrato','reprov','ausent','pend','desist','desclass','demExc'].forEach(k=>{
         e[k]=(e[k+'Cohab']||0)+(e[k+'Sehab']||0);
       });
-      if(nome==='TOTAL'||nome==='Total'){quantTotals=e;}
-      else{quantMap[nome.toUpperCase()]=e;}
+      e.aprovTotal=e.aprov;e.pendTotal=e.pend;
+      // q object pra compatibilidade
+      e.q=e;
+      emps.push(e);
+    }
+
+    // Totais
+    const totRow=raw.find(r=>r&&String(r[0]||'').trim()==='TOTAL');
+    if(totRow){
+      quantTotals={uhTotal:num(totRow[8]),
+        termo:num(totRow[10])+num(totRow[11]),selec:num(totRow[12])+num(totRow[13]),
+        dossie:num(totRow[14])+num(totRow[15]),aprov:num(totRow[16])+num(totRow[17]),
+        contrato:num(totRow[18])+num(totRow[19]),reprov:num(totRow[20])+num(totRow[21]),
+        ausent:num(totRow[22])+num(totRow[23]),pend:num(totRow[24])+num(totRow[25]),
+        desist:num(totRow[26])+num(totRow[27]),desclass:num(totRow[28])+num(totRow[29]),
+        demExc:num(totRow[30])+num(totRow[31])};
     }
   }
 
   if(!quantTotals.termo){
     quantTotals={termo:0,selec:0,dossie:0,aprov:0,contrato:0,reprov:0,ausent:0,pend:0,desist:0,desclass:0,demExc:0,uhTotal:0};
-    Object.values(quantMap).forEach(e=>{Object.keys(quantTotals).forEach(k=>{quantTotals[k]+=(e[k]||0);});});
+    emps.forEach(e=>{Object.keys(quantTotals).forEach(k=>{quantTotals[k]+=(e[k]||0);});});
   }
 
-  emps.forEach(emp=>{const q=quantMap[emp.nome.toUpperCase()];if(q){emp.q=q;}});
-
-  // --- AQUIEMP (registros individuais) ---
+  // --- AQUIEMP (registros individuais / devolutivas) ---
   const aquiMap={};
   const aName=wb.SheetNames.find(n=>n.toLowerCase().includes('aquiemp'));
   if(aName){
-    const raw=XLSX.utils.sheet_to_json(wb.Sheets[aName],{header:1,defval:null,blankrows:false});
-    // Row 0 = headers, data starts row 1
+    const raw=XLSX.utils.sheet_to_json(wb.Sheets[aName],{header:1,defval:null});
     for(let i=1;i<raw.length;i++){
       const r=raw[i];if(!r||!r[2])continue;
       const emp=String(r[2]).trim().toUpperCase();
@@ -462,7 +477,7 @@ function parsePPE(wb) {
     }
   }
 
-  S.ppe={emps,quantTotals,quantMap,aquiMap,loaded:true};
+  S.ppe={emps,quantTotals,quantMap:{},aquiMap,loaded:true};
 }
 
 // ============================================================
@@ -541,11 +556,9 @@ function renderPPEOverview(){
   document.getElementById('view-label').innerHTML=`<span class="crumb">UH</span> › ${label} <span style="color:var(--ink3);margin-left:8px">${emps.length} empreendimento${emps.length!==1?'s':''}</span>`;
 
   const totUH=emps.reduce((s,e)=>s+e.uhTotal,0);
-  let totAprov=0,totContrato=0,totPend=0,totTermo=0,totVagas=0;
+  let totAprov=0,totContrato=0,totPend=0,totTermo=0;
   emps.forEach(e=>{
-    if(e.q){totAprov+=e.q.aprov;totContrato+=e.q.contrato;totPend+=e.q.pend;totTermo+=e.q.termo;}
-    else{totAprov+=e.aprovTotal;totPend+=e.pendTotal;}
-    totVagas+=Math.max(0,e.vagasTotal);
+    totAprov+=e.aprov||0;totContrato+=e.contrato||0;totPend+=e.pend||0;totTermo+=e.termo||0;
   });
 
   // Store filtered emps for KPI detail
@@ -557,7 +570,7 @@ function renderPPEOverview(){
     {l:'Contratos Assinados',v:fmt(totContrato),d:totUH?pct(totContrato/totUH,1)+' do total':'',c:'success',id:'kpi-contratos'},
     {l:'Aprovados',v:fmt(totAprov),d:totUH?pct(totAprov/totUH,1)+' do total':'',c:'success',id:'kpi-aprovados'},
     {l:'Pendências',v:fmt(totPend),d:'Requerem atenção',c:totPend>0?'alert':'',id:'kpi-pendencias'},
-    {l:'Vagas Disponíveis',v:fmt(totVagas),d:'Sem dossiê',c:'warn',id:'kpi-vagas'},
+    {l:'Termos de Vinculação',v:fmt(totTermo),d:'Famílias vinculadas',c:'',id:'kpi-termos'},
   ].map(k=>`<div class="kpi ${k.c}" onclick="showKpiDetail('${k.id}','${k.l}')"><div class="k-label">${k.l}</div><div class="k-value">${k.v}</div><div class="k-detail">${k.d}</div></div>`).join('');
 
   document.getElementById('kpi-detail-panel').className='kpi-detail-panel';
@@ -624,34 +637,30 @@ function renderPPEOverview(){
 function renderEmpDetail(){
   const emp=S.ppe.emps.find(e=>e.nome===S.view.emp);
   if(!emp){renderPPEOverview();return;}
-  const q=emp.q||{};
+  const q=emp.q||emp;
 
   // Hide overview charts
   document.getElementById('ppe-charts').style.display='none';
+  document.getElementById('kpi-detail-panel').className='kpi-detail-panel';
   if(window._charts){window._charts.forEach(c=>c.destroy());window._charts=[];}
 
   document.getElementById('view-label').innerHTML=`<span class="crumb" style="cursor:pointer" onclick="S.view.emp='';updatePPEView();">UH</span> › <span class="crumb" style="cursor:pointer" onclick="S.view.emp='';updatePPEView();">${emp.dts||'Geral'}</span> › ${emp.nome}`;
 
-  const ov=num(emp.pctObra);const op=ov>0?(ov<=1.5?ov*100:ov):null;
-  const oc=op===null?'zero':op>=95?'high':op>=60?'mid':'low';
-
   document.getElementById('ppe-kpis').innerHTML='';
 
-  const aprov=q.aprov||emp.aprovTotal||0;
+  const aprov=q.aprov||0;
   const contr=q.contrato||0;
-  const pend=q.pend||emp.pendTotal||0;
+  const pend=q.pend||0;
   const termo=q.termo||0;
   const selec=q.selec||0;
-  const vagas=Math.max(0,emp.vagasTotal||0);
+  const dossie=q.dossie||0;
 
   document.getElementById('ppe-detail').innerHTML=`<div class="detail-panel">
     <h2>${emp.nome}</h2>
-    <div class="dp-sub">${[emp.dts,emp.modalidade,emp.subpref].filter(Boolean).join(' · ')}${emp.endereco?' — '+emp.endereco:''}</div>
+    <div class="dp-sub">${[emp.dts,emp.modalidade,emp.programa].filter(Boolean).join(' · ')}${emp.endereco?' — '+emp.endereco:''}</div>
 
-    <div class="dp-obra">
-      <div class="obra-lbl"><span style="font-weight:600">Evolução da Obra</span><strong style="font-size:18px">${op!==null?op.toFixed(1)+'%':'Sem dados'}</strong></div>
-      <div class="dp-obra-bar"><div class="fill ${oc}" style="width:${op!==null?Math.min(100,op):0}%"></div></div>
-    </div>
+    ${(()=>{const ov=num(emp.pctObra);const op=ov>0?(ov<=1.5?ov*100:ov):null;const oc=op===null?'zero':op>=95?'high':op>=60?'mid':'low';
+      return `<div class="dp-obra"><div class="obra-lbl"><span style="font-weight:600">Evolução da Obra</span><strong style="font-size:18px">${op!==null?op.toFixed(1)+'%':'Sem dados'}</strong></div><div class="dp-obra-bar"><div class="fill ${oc}" style="width:${op!==null?Math.min(100,op):0}%"></div></div></div>`;})()}
 
     <div class="dp-grid">
       <div class="dp-item"><div class="dp-lbl">UHs Totais</div><div class="dp-val">${fmt(emp.uhTotal)}</div><div class="dp-det">COHAB: ${fmt(emp.uhCohab)} · SEHAB: ${fmt(emp.uhSehab)}</div></div>
@@ -660,19 +669,19 @@ function renderEmpDetail(){
       <div class="dp-item ${pend>0?'red':''}"><div class="dp-lbl">Pendências</div><div class="dp-val">${fmt(pend)}</div></div>
       <div class="dp-item"><div class="dp-lbl">Termos de Vinculação</div><div class="dp-val">${fmt(termo)}</div></div>
       <div class="dp-item"><div class="dp-lbl">Selecionados</div><div class="dp-val">${fmt(selec)}</div></div>
-      <div class="dp-item gold"><div class="dp-lbl">Vagas sem Dossiê</div><div class="dp-val">${fmt(vagas)}</div></div>
-      <div class="dp-item"><div class="dp-lbl">Dossiês Enviados</div><div class="dp-val">${fmt(emp.totalDossies)}</div></div>
+      <div class="dp-item"><div class="dp-lbl">Dossiês Enviados</div><div class="dp-val">${fmt(dossie)}</div></div>
+      <div class="dp-item"><div class="dp-lbl">Total Processados</div><div class="dp-val">${fmt(emp.total)}</div></div>
     </div>
 
     <div class="dp-info">
-      <div><div class="dp-info-item"><strong>Assembleia AGI:</strong> ${fmtDateShort(emp.dataAssembleia)}</div>
+      <div><div class="dp-info-item"><strong>Assembleia:</strong> ${fmtDateShort(emp.dataAssembleia)}</div>
       <div class="dp-info-item"><strong>Entrega prevista:</strong> ${fmtDateShort(emp.entrega)}</div>
       <div class="dp-info-item"><strong>Escolha de UH:</strong> ${fmtDateShort(emp.dataEscolha)}</div>
-      <div class="dp-info-item"><strong>CNPJ emitido:</strong> ${emp.cnpjEmitido||'—'}</div></div>
+      <div class="dp-info-item"><strong>CNPJ:</strong> ${emp.cnpjEmitido||'—'}</div></div>
       <div><div class="dp-info-item"><strong>Construtora:</strong> ${emp.construtora||'—'}</div>
       <div class="dp-info-item"><strong>Contatos:</strong> ${emp.contatos||'—'}</div>
-      <div class="dp-info-item"><strong>Modalidade:</strong> ${emp.modalidade||'—'}</div>
-      ${emp.obs?`<div class="dp-info-item"><strong>Obs:</strong> ${emp.obs}</div>`:''}</div>
+      <div class="dp-info-item"><strong>Programa:</strong> ${emp.programa||'—'}</div>
+      <div class="dp-info-item"><strong>Modalidade:</strong> ${emp.modalidade||'—'}</div></div>
     </div>
   </div>`;
 
@@ -821,12 +830,14 @@ function showKpiDetail(id, label){
     rows=emps.map(e=>({nome:e.nome,dts:e.dts,programa:e.programa,uhs:e.uhTotal})).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
     panel.innerHTML=`<button class="close-btn" onclick="this.parentElement.className='kpi-detail-panel'">✕</button>
       <h3>${label} — ${rows.length} empreendimentos</h3>
+      <p style="font-size:12px;color:var(--ink3);margin-bottom:8px">Fonte: aba "Painel de Dossiês"</p>
       <table><thead><tr><th>Empreendimento</th><th>DTS</th><th>Programa</th><th style="text-align:right">UHs</th></tr></thead>
       <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td>${r.programa}</td><td class="num">${fmt(r.uhs)}</td></tr>`).join('')}</tbody></table>`;
   } else if(id==='kpi-uhs'){
     rows=emps.map(e=>({nome:e.nome,dts:e.dts,cohab:e.uhCohab,sehab:e.uhSehab,total:e.uhTotal})).sort((a,b)=>b.total-a.total);
     panel.innerHTML=`<button class="close-btn" onclick="this.parentElement.className='kpi-detail-panel'">✕</button>
       <h3>${label} — por empreendimento</h3>
+      <p style="font-size:12px;color:var(--ink3);margin-bottom:8px">Fonte: aba "Painel de Dossiês" → colunas "UHs" COHAB / SEHAB / TOTAL</p>
       <table><thead><tr><th>Empreendimento</th><th>DTS</th><th style="text-align:right">COHAB</th><th style="text-align:right">SEHAB</th><th style="text-align:right">Total</th></tr></thead>
       <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td class="num">${fmt(r.cohab)}</td><td class="num">${fmt(r.sehab)}</td><td class="num">${fmt(r.total)}</td></tr>`).join('')}</tbody></table>`;
   } else if(id==='kpi-contratos'){
@@ -834,6 +845,7 @@ function showKpiDetail(id, label){
     const total=rows.reduce((s,r)=>s+r.val,0);
     panel.innerHTML=`<button class="close-btn" onclick="this.parentElement.className='kpi-detail-panel'">✕</button>
       <h3>${label} — ${fmt(total)} contratos em ${rows.length} empreendimentos</h3>
+      <p style="font-size:12px;color:var(--ink3);margin-bottom:8px">Fonte: aba "Quantitativo" → coluna "Contrato assinado" COHAB + SEHAB</p>
       <table><thead><tr><th>Empreendimento</th><th>DTS</th><th style="text-align:right">UHs</th><th style="text-align:right">Contratos</th><th style="text-align:right">%</th></tr></thead>
       <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td class="num">${fmt(r.uhs)}</td><td class="num">${fmt(r.val)}</td><td class="num">${r.uhs?pct(r.val/r.uhs,1):'—'}</td></tr>`).join('')}</tbody></table>`;
   } else if(id==='kpi-aprovados'){
@@ -841,6 +853,7 @@ function showKpiDetail(id, label){
     const total=rows.reduce((s,r)=>s+r.val,0);
     panel.innerHTML=`<button class="close-btn" onclick="this.parentElement.className='kpi-detail-panel'">✕</button>
       <h3>${label} — ${fmt(total)} aprovados em ${rows.length} empreendimentos</h3>
+      <p style="font-size:12px;color:var(--ink3);margin-bottom:8px">Fonte: aba "Quantitativo" → coluna "Aprovado" COHAB + SEHAB</p>
       <table><thead><tr><th>Empreendimento</th><th>DTS</th><th style="text-align:right">UHs</th><th style="text-align:right">Aprovados</th><th style="text-align:right">%</th></tr></thead>
       <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td class="num">${fmt(r.uhs)}</td><td class="num">${fmt(r.val)}</td><td class="num">${r.uhs?pct(r.val/r.uhs,1):'—'}</td></tr>`).join('')}</tbody></table>`;
   } else if(id==='kpi-pendencias'){
@@ -848,15 +861,19 @@ function showKpiDetail(id, label){
     const total=rows.reduce((s,r)=>s+r.val,0);
     panel.innerHTML=`<button class="close-btn" onclick="this.parentElement.className='kpi-detail-panel'">✕</button>
       <h3>${label} — ${fmt(total)} pendências em ${rows.length} empreendimentos</h3>
+      <p style="font-size:12px;color:var(--ink3);margin-bottom:8px">Fonte: aba "Quantitativo" → coluna "Pendência" COHAB + SEHAB</p>
       <table><thead><tr><th>Empreendimento</th><th>DTS</th><th style="text-align:right">UHs</th><th style="text-align:right">Pendências</th><th style="text-align:right">%</th></tr></thead>
       <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td class="num">${fmt(r.uhs)}</td><td class="num" style="color:var(--red)">${fmt(r.val)}</td><td class="num">${r.uhs?pct(r.val/r.uhs,1):'—'}</td></tr>`).join('')}</tbody></table>`;
-  } else if(id==='kpi-vagas'){
-    rows=emps.map(e=>({nome:e.nome,dts:e.dts,val:Math.max(0,e.vagasTotal||0),uhs:e.uhTotal})).filter(r=>r.val>0).sort((a,b)=>b.val-a.val);
+  } else if(id==='kpi-termos'){
+    rows=emps.map(e=>({nome:e.nome,dts:e.dts,cohab:e.termoCohab||0,sehab:e.termoSehab||0,val:e.termo||0,uhs:e.uhTotal})).filter(r=>r.val>0).sort((a,b)=>b.val-a.val);
     const total=rows.reduce((s,r)=>s+r.val,0);
     panel.innerHTML=`<button class="close-btn" onclick="this.parentElement.className='kpi-detail-panel'">✕</button>
-      <h3>${label} — ${fmt(total)} vagas em ${rows.length} empreendimentos</h3>
-      <table><thead><tr><th>Empreendimento</th><th>DTS</th><th style="text-align:right">UHs</th><th style="text-align:right">Vagas</th><th style="text-align:right">%</th></tr></thead>
-      <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td class="num">${fmt(r.uhs)}</td><td class="num" style="color:#B8860B">${fmt(r.val)}</td><td class="num">${r.uhs?pct(r.val/r.uhs,1):'—'}</td></tr>`).join('')}</tbody></table>`;
+      <h3>${label} — ${fmt(total)} termos em ${rows.length} empreendimentos</h3>
+      <p style="font-size:12px;color:var(--ink3);margin-bottom:8px">Fonte: aba "Quantitativo" → coluna "Termo de Vinculação" COHAB + SEHAB</p>
+      <table><thead><tr><th>Empreendimento</th><th>DTS</th><th style="text-align:right">UHs</th><th style="text-align:right">COHAB</th><th style="text-align:right">SEHAB</th><th style="text-align:right">Total</th><th style="text-align:right">%</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td class="num">${fmt(r.uhs)}</td><td class="num">${fmt(r.cohab)}</td><td class="num">${fmt(r.sehab)}</td><td class="num" style="font-weight:700">${fmt(r.val)}</td><td class="num">${r.uhs?pct(r.val/r.uhs,1):'—'}</td></tr>`).join('')}
+      <tr style="font-weight:700;border-top:2px solid var(--teal)"><td>TOTAL</td><td></td><td class="num">${fmt(rows.reduce((s,r)=>s+r.uhs,0))}</td><td class="num">${fmt(rows.reduce((s,r)=>s+r.cohab,0))}</td><td class="num">${fmt(rows.reduce((s,r)=>s+r.sehab,0))}</td><td class="num">${fmt(total)}</td><td></td></tr>
+      </tbody></table>`;
   }
 
   panel.className='kpi-detail-panel active';
