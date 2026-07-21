@@ -949,15 +949,23 @@ function showKpiDetail(id, label){
 // ============================================================
 function parseEmergencial(wb){
   const records=[];
-  // Find the data sheet (largest one with ORDEM header)
-  // Encontra a aba com dados
-  let sheetName=null;
-  for(const name of wb.SheetNames){
-    const raw=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:null});
-    if(raw.some(r=>r&&r.some(c=>String(c||'').toUpperCase()==='ORDEM'))){sheetName=name;break;}
-  }
+  // Usa APENAS a aba Planilha1
+  const sheetName=wb.SheetNames.find(n=>n==='Planilha1')||wb.SheetNames.find(n=>n.toLowerCase().includes('planilha1'));
   if(!sheetName)return;
-  const raw=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:null});
+
+  // Força leitura de TODAS as linhas expandindo o range da planilha
+  const ws=wb.Sheets[sheetName];
+  if(ws['!ref']){
+    const keys=Object.keys(ws).filter(k=>k[0]!=='!');
+    let maxRow=0;
+    keys.forEach(k=>{const m=k.match(/(\d+)/);if(m)maxRow=Math.max(maxRow,parseInt(m[1]));});
+    if(maxRow>0){
+      const ref=XLSX.utils.decode_range(ws['!ref']);
+      if(maxRow-1>ref.e.r){ref.e.r=maxRow-1;ws['!ref']=XLSX.utils.encode_range(ref);}
+    }
+  }
+
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,blankrows:true});
   // Encontra header e mapeia colunas por NOME
   let hIdx=raw.findIndex(r=>r&&r.some(c=>String(c||'').toUpperCase()==='ORDEM'));
   if(hIdx<0)return;
