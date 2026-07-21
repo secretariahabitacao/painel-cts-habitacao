@@ -72,13 +72,25 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 
 /* KPIS */
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:28px}
-.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;border-left:4px solid var(--teal);box-shadow:var(--shadow)}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;border-left:4px solid var(--teal);box-shadow:var(--shadow);cursor:pointer;transition:all .15s}
+.kpi:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);transform:translateY(-1px)}
+.kpi.active{border-color:var(--teal);box-shadow:0 0 0 2px var(--teal)}
 .kpi.alert{border-left-color:var(--red)}
 .kpi.success{border-left-color:var(--green)}
 .kpi.warn{border-left-color:var(--gold)}
 .kpi .k-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:6px}
 .kpi .k-value{font-size:26px;font-weight:700;color:var(--ink);line-height:1}
 .kpi .k-detail{font-size:11px;color:var(--ink2);margin-top:4px}
+.kpi-detail-panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:24px;display:none}
+.kpi-detail-panel.active{display:block}
+.kpi-detail-panel h3{font-size:14px;font-weight:700;margin-bottom:4px}
+.kpi-detail-panel .close-btn{float:right;background:none;border:none;font-size:18px;cursor:pointer;color:var(--ink3);padding:0 4px}
+.kpi-detail-panel .close-btn:hover{color:var(--ink)}
+.kpi-detail-panel table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}
+.kpi-detail-panel th{background:var(--bg);padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);font-weight:600}
+.kpi-detail-panel td{padding:7px 10px;border-bottom:1px solid var(--line-soft)}
+.kpi-detail-panel td.num{text-align:right;font-weight:600}
+.kpi-detail-panel tr:hover td{background:var(--teal-soft)}
 
 /* CHARTS */
 .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
@@ -251,6 +263,7 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
     </div>
     <div class="view-label" id="view-label"></div>
     <div id="ppe-kpis" class="kpi-row"></div>
+    <div id="kpi-detail-panel" class="kpi-detail-panel"></div>
     <div id="ppe-detail"></div>
     <div id="ppe-charts">
       <div class="charts-row">
@@ -535,14 +548,20 @@ function renderPPEOverview(){
     totVagas+=Math.max(0,e.vagasTotal);
   });
 
+  // Store filtered emps for KPI detail
+  window._kpiEmps=emps;
+
   document.getElementById('ppe-kpis').innerHTML=[
-    {l:'Empreendimentos',v:emps.length,d:'',c:''},
-    {l:'UHs Totais',v:fmt(totUH),d:'Unidades habitacionais',c:''},
-    {l:'Contratos Assinados',v:fmt(totContrato),d:totUH?pct(totContrato/totUH,1)+' do total':'',c:'success'},
-    {l:'Aprovados',v:fmt(totAprov),d:totUH?pct(totAprov/totUH,1)+' do total':'',c:'success'},
-    {l:'Pendências',v:fmt(totPend),d:'Requerem atenção',c:totPend>0?'alert':''},
-    {l:'Vagas Disponíveis',v:fmt(totVagas),d:'Sem dossiê',c:'warn'},
-  ].map(k=>`<div class="kpi ${k.c}"><div class="k-label">${k.l}</div><div class="k-value">${k.v}</div><div class="k-detail">${k.d}</div></div>`).join('');
+    {l:'Empreendimentos',v:emps.length,d:'',c:'',id:'kpi-emps'},
+    {l:'UHs Totais',v:fmt(totUH),d:'Unidades habitacionais',c:'',id:'kpi-uhs'},
+    {l:'Contratos Assinados',v:fmt(totContrato),d:totUH?pct(totContrato/totUH,1)+' do total':'',c:'success',id:'kpi-contratos'},
+    {l:'Aprovados',v:fmt(totAprov),d:totUH?pct(totAprov/totUH,1)+' do total':'',c:'success',id:'kpi-aprovados'},
+    {l:'Pendências',v:fmt(totPend),d:'Requerem atenção',c:totPend>0?'alert':'',id:'kpi-pendencias'},
+    {l:'Vagas Disponíveis',v:fmt(totVagas),d:'Sem dossiê',c:'warn',id:'kpi-vagas'},
+  ].map(k=>`<div class="kpi ${k.c}" onclick="showKpiDetail('${k.id}','${k.l}')"><div class="k-label">${k.l}</div><div class="k-value">${k.v}</div><div class="k-detail">${k.d}</div></div>`).join('');
+
+  document.getElementById('kpi-detail-panel').className='kpi-detail-panel';
+  document.getElementById('kpi-detail-panel').innerHTML='';
 
   document.getElementById('ppe-detail').innerHTML='';
   document.getElementById('ppe-charts').style.display='block';
@@ -791,6 +810,60 @@ function exportDevolutivas(){
 }
 
 // ============================================================
+// KPI DETAIL (clicável)
+// ============================================================
+function showKpiDetail(id, label){
+  const emps=window._kpiEmps||[];
+  const panel=document.getElementById('kpi-detail-panel');
+  let rows=[];
+
+  if(id==='kpi-emps'){
+    rows=emps.map(e=>({nome:e.nome,dts:e.dts,programa:e.programa,uhs:e.uhTotal})).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+    panel.innerHTML=`<button class="close-btn" onclick="this.parentElement.className='kpi-detail-panel'">✕</button>
+      <h3>${label} — ${rows.length} empreendimentos</h3>
+      <table><thead><tr><th>Empreendimento</th><th>DTS</th><th>Programa</th><th style="text-align:right">UHs</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td>${r.programa}</td><td class="num">${fmt(r.uhs)}</td></tr>`).join('')}</tbody></table>`;
+  } else if(id==='kpi-uhs'){
+    rows=emps.map(e=>({nome:e.nome,dts:e.dts,cohab:e.uhCohab,sehab:e.uhSehab,total:e.uhTotal})).sort((a,b)=>b.total-a.total);
+    panel.innerHTML=`<button class="close-btn" onclick="this.parentElement.className='kpi-detail-panel'">✕</button>
+      <h3>${label} — por empreendimento</h3>
+      <table><thead><tr><th>Empreendimento</th><th>DTS</th><th style="text-align:right">COHAB</th><th style="text-align:right">SEHAB</th><th style="text-align:right">Total</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td class="num">${fmt(r.cohab)}</td><td class="num">${fmt(r.sehab)}</td><td class="num">${fmt(r.total)}</td></tr>`).join('')}</tbody></table>`;
+  } else if(id==='kpi-contratos'){
+    rows=emps.map(e=>({nome:e.nome,dts:e.dts,val:(e.q?e.q.contrato:0),uhs:e.uhTotal})).filter(r=>r.val>0).sort((a,b)=>b.val-a.val);
+    const total=rows.reduce((s,r)=>s+r.val,0);
+    panel.innerHTML=`<button class="close-btn" onclick="this.parentElement.className='kpi-detail-panel'">✕</button>
+      <h3>${label} — ${fmt(total)} contratos em ${rows.length} empreendimentos</h3>
+      <table><thead><tr><th>Empreendimento</th><th>DTS</th><th style="text-align:right">UHs</th><th style="text-align:right">Contratos</th><th style="text-align:right">%</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td class="num">${fmt(r.uhs)}</td><td class="num">${fmt(r.val)}</td><td class="num">${r.uhs?pct(r.val/r.uhs,1):'—'}</td></tr>`).join('')}</tbody></table>`;
+  } else if(id==='kpi-aprovados'){
+    rows=emps.map(e=>({nome:e.nome,dts:e.dts,val:(e.q?e.q.aprov:e.aprovTotal)||0,uhs:e.uhTotal})).filter(r=>r.val>0).sort((a,b)=>b.val-a.val);
+    const total=rows.reduce((s,r)=>s+r.val,0);
+    panel.innerHTML=`<button class="close-btn" onclick="this.parentElement.className='kpi-detail-panel'">✕</button>
+      <h3>${label} — ${fmt(total)} aprovados em ${rows.length} empreendimentos</h3>
+      <table><thead><tr><th>Empreendimento</th><th>DTS</th><th style="text-align:right">UHs</th><th style="text-align:right">Aprovados</th><th style="text-align:right">%</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td class="num">${fmt(r.uhs)}</td><td class="num">${fmt(r.val)}</td><td class="num">${r.uhs?pct(r.val/r.uhs,1):'—'}</td></tr>`).join('')}</tbody></table>`;
+  } else if(id==='kpi-pendencias'){
+    rows=emps.map(e=>({nome:e.nome,dts:e.dts,val:(e.q?e.q.pend:e.pendTotal)||0,uhs:e.uhTotal})).filter(r=>r.val>0).sort((a,b)=>b.val-a.val);
+    const total=rows.reduce((s,r)=>s+r.val,0);
+    panel.innerHTML=`<button class="close-btn" onclick="this.parentElement.className='kpi-detail-panel'">✕</button>
+      <h3>${label} — ${fmt(total)} pendências em ${rows.length} empreendimentos</h3>
+      <table><thead><tr><th>Empreendimento</th><th>DTS</th><th style="text-align:right">UHs</th><th style="text-align:right">Pendências</th><th style="text-align:right">%</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td class="num">${fmt(r.uhs)}</td><td class="num" style="color:var(--red)">${fmt(r.val)}</td><td class="num">${r.uhs?pct(r.val/r.uhs,1):'—'}</td></tr>`).join('')}</tbody></table>`;
+  } else if(id==='kpi-vagas'){
+    rows=emps.map(e=>({nome:e.nome,dts:e.dts,val:Math.max(0,e.vagasTotal||0),uhs:e.uhTotal})).filter(r=>r.val>0).sort((a,b)=>b.val-a.val);
+    const total=rows.reduce((s,r)=>s+r.val,0);
+    panel.innerHTML=`<button class="close-btn" onclick="this.parentElement.className='kpi-detail-panel'">✕</button>
+      <h3>${label} — ${fmt(total)} vagas em ${rows.length} empreendimentos</h3>
+      <table><thead><tr><th>Empreendimento</th><th>DTS</th><th style="text-align:right">UHs</th><th style="text-align:right">Vagas</th><th style="text-align:right">%</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td class="num">${fmt(r.uhs)}</td><td class="num" style="color:#B8860B">${fmt(r.val)}</td><td class="num">${r.uhs?pct(r.val/r.uhs,1):'—'}</td></tr>`).join('')}</tbody></table>`;
+  }
+
+  panel.className='kpi-detail-panel active';
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ============================================================
 // EMERGENCIAL
 // ============================================================
 function parseEmergencial(wb){
@@ -812,7 +885,7 @@ function parseEmergencial(wb){
   hRow.forEach((v,i)=>{if(v)col[String(v).toUpperCase().trim()]=i;});
   const C=k=>col[k]!==undefined?col[k]:-1;
   const g=(r,k)=>{const i=C(k);return i>=0&&r[i]!=null?r[i]:'';};
-  const gd=(r,k)=>{let v=g(r,k);if(typeof v==='number'&&v>30000)v=new Date((v-25569)*86400*1000);return v;};
+  const gd=(r,k)=>{let v=g(r,k);if(!v)return null;if(v instanceof Date)return v;if(typeof v==='number'&&v>30000)return new Date((v-25569)*86400*1000);const s=String(v).trim();const m=s.match(/(\d{2})\/(\d{2})\/(\d{4})/);if(m)return new Date(+m[3],+m[2]-1,+m[1]);return null;};
 
   for(let i=hIdx+1;i<raw.length;i++){
     const r=raw[i];if(!r)continue;
@@ -871,9 +944,9 @@ function filterEmergencial(){
   let filtered=recs.filter(r=>{
     if(fEv&&r.evento!==fEv)return false;
     if(fReg&&r.regional!==fReg)return false;
-    if(fSei&&!String(r.sei).toLowerCase().includes(fSei))return false;
-    if(fDtIni&&r.dataOcorrencia instanceof Date&&r.dataOcorrencia<fDtIni)return false;
-    if(fDtFim&&r.dataOcorrencia instanceof Date&&r.dataOcorrencia>fDtFim)return false;
+    if(fSei){const h=[r.sei,r.nomeArea,r.nome,r.subprefeitura].map(v=>String(v||'').toLowerCase().trim()).join(' ');if(!h.includes(fSei))return false;}
+    const dt=r.dataOcorrencia;
+    if(dt instanceof Date){if(fDtIni&&dt<fDtIni)return false;if(fDtFim&&dt>fDtFim)return false;}
     return true;
   });
 
@@ -1028,15 +1101,26 @@ async function autoLoad(){
     {name:'dados-indenizacao.xlsx',prog:'indenizacao'},
     {name:'dados-historico.xlsx',prog:'historico'}
   ];
-  for(const f of files){
+
+  // Mostra "Carregando..." nos que existirem
+  const loadFile=async(f)=>{
     try{
-      const r=await fetch(f.name+'?v='+Date.now());if(!r.ok)continue;
+      const r=await fetch(f.name+'?v='+Date.now());if(!r.ok)return;
+      const statusEl=document.getElementById('status-'+f.prog);
+      if(statusEl){statusEl.className='prog-status on';statusEl.textContent='Carregando...';}
       const buf=await r.arrayBuffer();
       const wb=XLSX.read(new Uint8Array(buf),{type:'array',cellDates:true});
-      if(f.prog==='ppe'){parsePPE(wb);document.getElementById('status-ppe').className='prog-status on';document.getElementById('status-ppe').textContent='Ativo';}
-      if(f.prog==='emergencial'){parseEmergencial(wb);document.getElementById('status-emergencial').className='prog-status on';document.getElementById('status-emergencial').textContent='Ativo';}
-    }catch(e){}
-  }
+      if(f.prog==='ppe'){parsePPE(wb);}
+      if(f.prog==='emergencial'){parseEmergencial(wb);}
+      if(statusEl){statusEl.textContent='Ativo';}
+    }catch(e){
+      const statusEl=document.getElementById('status-'+f.prog);
+      if(statusEl&&statusEl.textContent==='Carregando...'){statusEl.className='prog-status off';statusEl.textContent='Erro';}
+    }
+  };
+
+  // Carrega todos em paralelo
+  await Promise.all(files.map(f=>loadFile(f)));
   selectProg('ppe');
 }
 autoLoad();
