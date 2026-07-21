@@ -62,7 +62,7 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 .selectors{display:flex;gap:12px;margin-bottom:24px;align-items:stretch;flex-wrap:wrap}
 .sel-group{display:flex;flex-direction:column;gap:4px;min-width:200px}
 .sel-group label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);font-weight:600}
-.sel-group select{padding:10px 14px;border:1px solid var(--line);border-radius:var(--radius);font-family:inherit;font-size:13px;background:var(--surface);color:var(--ink);cursor:pointer;appearance:auto;outline:none}
+.sel-group select,.sel-group input{padding:10px 14px;border:1px solid var(--line);border-radius:var(--radius);font-family:inherit;font-size:13px;background:var(--surface);color:var(--ink);cursor:pointer;appearance:auto;outline:none;height:42px}
 .sel-group select:focus{border-color:var(--teal)}
 
 /* VIEW LABEL */
@@ -211,7 +211,7 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
   <!-- PROGRAM NAV -->
   <nav class="program-nav" id="prog-nav">
     <button class="prog-btn" data-prog="ppe" onclick="selectProg('ppe')">
-      <div class="prog-top"><div class="prog-icon ppe">🏠</div><div class="prog-info"><h3>Programa Pode Entrar</h3><p>Empreendimentos, dossiês e contratos</p></div></div>
+      <div class="prog-top"><div class="prog-icon ppe">🏠</div><div class="prog-info"><h3>Unidade Habitacional</h3><p>Empreendimentos, dossiês e contratos</p></div></div>
       <span class="prog-status on" id="status-ppe">Ativo</span>
     </button>
     <button class="prog-btn" data-prog="auxilio" onclick="selectProg('auxilio')">
@@ -235,6 +235,10 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
   <!-- PPE CONTENT -->
   <div class="prog-content" id="prog-ppe">
     <div class="selectors">
+      <div class="sel-group">
+        <label>Programa</label>
+        <select id="sel-prog"><option value="">Todos os programas</option></select>
+      </div>
       <div class="sel-group">
         <label>Regional (DTS)</label>
         <select id="sel-dts"><option value="">Todas as regionais</option></select>
@@ -313,7 +317,7 @@ const S = {
   emergencial: { loaded: false, data: null },
   indenizacao: { loaded: false, data: null },
   historico: { loaded: false, data: null },
-  view: { dts: '', emp: '' }
+  view: { dts: '', emp: '', programa: '' }
 };
 
 // ============================================================
@@ -338,6 +342,14 @@ const normMod = v => {
   if (/^Aquisi/i.test(s)) return 'Aquisições';
   if (/^Empresa/i.test(s)) return 'Empresas';
   return s;
+};
+const modToPrograma = m => {
+  if (!m) return '';
+  const s=m.toUpperCase();
+  if (s==='PPP') return 'PPP';
+  if (s.includes('PRÓPRIA')||s.includes('PROPRIA')) return 'Produção Própria';
+  if (s==='OUCAE') return 'OUCAE';
+  return 'PPE';
 };
 
 function fmtDateShort(v) {
@@ -370,7 +382,7 @@ function parsePPE(wb) {
     for(let i=hIdx+2;i<raw.length;i++){
       const r=raw[i];if(!r||!r[0]||!String(r[0]).trim())continue;
       const nome=String(r[0]).trim();if(nome==='TOTAL'||nome==='Total')continue;
-      emps.push({nome,modalidade:normMod(r[1]),subpref:r[2]||'',dts:r[4]||'',
+      emps.push({nome,modalidade:normMod(r[1]),programa:modToPrograma(normMod(r[1])),subpref:r[2]||'',dts:r[4]||'',
         endereco:r[5]||'',construtora:r[6]||'',contatos:r[7]||'',
         pctObra:r[9],dataEvento:r[10],origemDemanda:r[11],
         uhCohab:num(r[12]),uhSehab:num(r[13]),uhTotal:num(r[14]),
@@ -460,19 +472,25 @@ function renderPPE(){
 }
 
 function renderPPESelectors(){
-  const dtsSet=[...new Set(S.ppe.emps.map(e=>e.dts).filter(Boolean))].sort();
+  const progSet=[...new Set(S.ppe.emps.map(e=>e.programa).filter(Boolean))].sort();
+  const progEl=document.getElementById('sel-prog');
+  progEl.innerHTML='<option value="">Todos os programas</option>'+progSet.map(p=>`<option value="${p}">${p}</option>`).join('');
+  progEl.value=S.view.programa||'';
+  progEl.onchange=e=>{S.view.programa=e.target.value;S.view.dts='';S.view.emp='';updatePPEView();};
+
+  const dtsSet=[...new Set(S.ppe.emps.filter(e=>!S.view.programa||e.programa===S.view.programa).map(e=>e.dts).filter(Boolean))].sort();
   const dtsEl=document.getElementById('sel-dts');
   dtsEl.innerHTML='<option value="">Todas as regionais</option>'+dtsSet.map(d=>`<option value="${d}">${d}</option>`).join('');
   dtsEl.value=S.view.dts;
   dtsEl.onchange=e=>{S.view.dts=e.target.value;S.view.emp='';updatePPEView();};
 
   updateEmpSelector();
-
   document.getElementById('sel-emp').onchange=e=>{S.view.emp=e.target.value;updatePPEView();};
 }
 
 function updateEmpSelector(){
   let list=S.ppe.emps;
+  if(S.view.programa) list=list.filter(e=>e.programa===S.view.programa);
   if(S.view.dts) list=list.filter(e=>e.dts===S.view.dts);
   const empEl=document.getElementById('sel-emp');
   empEl.innerHTML='<option value="">Panorama geral'+(S.view.dts?' — '+S.view.dts:'')+'</option>'+
@@ -495,15 +513,18 @@ function updatePPEView(){
 // ============================================================
 function renderPPEOverview(){
   let emps=S.ppe.emps;
-  const qt=S.ppe.quantTotals;
-  let label='Programa Pode Entrar — Panorama Geral';
+  let label='Unidade Habitacional — Panorama Geral';
 
+  if(S.view.programa){
+    emps=emps.filter(e=>e.programa===S.view.programa);
+    label=S.view.programa;
+  }
   if(S.view.dts){
     emps=emps.filter(e=>e.dts===S.view.dts);
-    label='Regional '+S.view.dts;
+    label=(S.view.programa||'Unidade Habitacional')+' — Regional '+S.view.dts;
   }
 
-  document.getElementById('view-label').innerHTML=`<span class="crumb">PPE</span> › ${label} <span style="color:var(--ink3);margin-left:8px">${emps.length} empreendimento${emps.length!==1?'s':''}</span>`;
+  document.getElementById('view-label').innerHTML=`<span class="crumb">UH</span> › ${label} <span style="color:var(--ink3);margin-left:8px">${emps.length} empreendimento${emps.length!==1?'s':''}</span>`;
 
   const totUH=emps.reduce((s,e)=>s+e.uhTotal,0);
   let totAprov=0,totContrato=0,totPend=0,totTermo=0,totVagas=0;
@@ -539,7 +560,7 @@ function renderPPEOverview(){
 
   // --- CHART 1: Status dos Dossiês (Doughnut) ---
   let funilData;
-  if(S.view.dts){
+  if(S.view.dts||S.view.programa){
     funilData={termo:0,selec:0,dossie:0,aprov:0,contrato:0,pend:0,reprov:0,desist:0};
     emps.forEach(e=>{if(e.q){Object.keys(funilData).forEach(k=>{funilData[k]+=(e.q[k]||0);});}});
   } else { funilData=S.ppe.quantTotals; }
@@ -589,7 +610,7 @@ function renderEmpDetail(){
   document.getElementById('ppe-charts').style.display='none';
   if(window._charts){window._charts.forEach(c=>c.destroy());window._charts=[];}
 
-  document.getElementById('view-label').innerHTML=`<span class="crumb" style="cursor:pointer" onclick="S.view.emp='';updatePPEView();">PPE</span> › <span class="crumb" style="cursor:pointer" onclick="S.view.emp='';updatePPEView();">${emp.dts||'Geral'}</span> › ${emp.nome}`;
+  document.getElementById('view-label').innerHTML=`<span class="crumb" style="cursor:pointer" onclick="S.view.emp='';updatePPEView();">UH</span> › <span class="crumb" style="cursor:pointer" onclick="S.view.emp='';updatePPEView();">${emp.dts||'Geral'}</span> › ${emp.nome}`;
 
   const ov=num(emp.pctObra);const op=ov>0?(ov<=1.5?ov*100:ov):null;
   const oc=op===null?'zero':op>=95?'high':op>=60?'mid':'low';
@@ -870,22 +891,25 @@ function filterEmergencial(){
   const teal='#009999',green='#1B7A3D',gold='#C9A227',red='#CC3333';
   const evColors={'ENCHENTE':teal,'INCÊNDIO':'#CC3333','DESABAMENTO':'#C05621','QUEDA DE ÁRVORE':'#2D8B4E','DESLIZAMENTO':'#C9A227','SOLAPAMENTO':'#6B46C1','DESTELHAMENTO':'#2B6CB0','RISCO':'#888'};
 
-  // Chart containers
+  // Chart containers — esconde gráfico de eventos quando um evento específico está selecionado
+  const showEvChart=!fEv;
   document.getElementById('emg-charts').innerHTML=`
     <div class="charts-row">
-      <div class="chart-box"><canvas id="emg-chart-ev"></canvas></div>
+      ${showEvChart?'<div class="chart-box"><canvas id="emg-chart-ev"></canvas></div>':''}
       <div class="chart-box"><canvas id="emg-chart-reg"></canvas></div>
     </div>
     <div class="chart-box full" style="margin-bottom:16px"><canvas id="emg-chart-timeline"></canvas></div>`;
 
-  // Bar chart: eventos
-  const evSorted=Object.entries(evCounts).sort((a,b)=>b[1]-a[1]);
-  window._emgCharts.push(new Chart(document.getElementById('emg-chart-ev'),{
-    type:'bar',
-    data:{labels:evSorted.map(e=>e[0]),datasets:[{data:evSorted.map(e=>e[1]),backgroundColor:evSorted.map(e=>evColors[e[0]]||'#999'),borderRadius:4}]},
-    options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Tipo de Evento',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
-      scales:{y:{grid:{display:false},ticks:{font:{size:11,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:10,family:'Arial'},maxRotation:45}}}}
-  }));
+  // Bar chart: eventos (só quando "Todos" está selecionado)
+  if(showEvChart){
+    const evSorted=Object.entries(evCounts).sort((a,b)=>b[1]-a[1]);
+    window._emgCharts.push(new Chart(document.getElementById('emg-chart-ev'),{
+      type:'bar',
+      data:{labels:evSorted.map(e=>e[0]),datasets:[{data:evSorted.map(e=>e[1]),backgroundColor:evSorted.map(e=>evColors[e[0]]||'#999'),borderRadius:4}]},
+      options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Tipo de Evento',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
+        scales:{y:{grid:{display:false},ticks:{font:{size:11,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:10,family:'Arial'},maxRotation:45}}}}
+    }));
+  }
 
   // Doughnut: regionais
   const regSorted=Object.entries(regCounts).sort((a,b)=>b[1]-a[1]);
@@ -896,23 +920,13 @@ function filterEmergencial(){
     options:{responsive:true,plugins:{title:{display:true,text:'Distribuição por Regional',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}
   }));
 
-  // Timeline: atendimentos por mês
-  const monthCounts={};
-  filtered.forEach(r=>{
-    if(r.dataOcorrencia instanceof Date){
-      const key=r.dataOcorrencia.getFullYear()+'-'+String(r.dataOcorrencia.getMonth()+1).padStart(2,'0');
-      monthCounts[key]=(monthCounts[key]||0)+1;
-    }
-  });
-  const months=Object.keys(monthCounts).sort();
-  const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  const monthLabels=months.map(m=>{const[y,mo]=m.split('-');return meses[parseInt(mo)-1]+'/'+y.slice(2);});
-
+  // Timeline: atendimentos por ANO
+  const yrSorted=Object.entries(yrCounts).sort((a,b)=>a[0]-b[0]);
   window._emgCharts.push(new Chart(document.getElementById('emg-chart-timeline'),{
     type:'bar',
-    data:{labels:monthLabels,datasets:[{data:months.map(m=>monthCounts[m]),backgroundColor:teal,borderRadius:3}]},
-    options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Mês',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
-      scales:{y:{grid:{color:'var(--line-soft)'},ticks:{font:{size:11,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:10,family:'Arial'},maxRotation:45}}}}
+    data:{labels:yrSorted.map(y=>y[0].toString()),datasets:[{data:yrSorted.map(y=>y[1]),backgroundColor:teal,borderRadius:4}]},
+    options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Ano',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
+      scales:{y:{grid:{color:'var(--line-soft)'},ticks:{font:{size:12,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:13,family:'Arial'}}}}}
   }));
 
   // Table
@@ -924,7 +938,7 @@ function filterEmergencial(){
       <button class="btn" onclick="exportEmergencial()">Exportar Excel</button>
     </div>
     <div class="dev-records"><table>
-      <thead><tr><th>Data Ocorr.</th><th>Evento</th><th>Área</th><th>Regional</th><th>Subprefeitura</th><th>Nº SEI</th><th>Beneficiário</th><th>Data Atend.</th><th>Status</th></tr></thead>
+      <thead><tr><th>Data Ocorr.</th><th>Evento</th><th>Área</th><th>Regional</th><th>Subprefeitura</th><th>Nº SEI</th><th>Beneficiário</th><th>Data Atend.</th></tr></thead>
       <tbody>${shown.map(r=>`<tr>
         <td>${r.dataOcorrencia instanceof Date?r.dataOcorrencia.toLocaleDateString('pt-BR'):'—'}</td>
         <td><span class="dev-badge ${r.evento==='ENCHENTE'?'outros':r.evento==='INCÊNDIO'?'excluido':'pendente'}" style="background:${(evColors[r.evento]||'#999')+'22'};color:${evColors[r.evento]||'#999'}">${r.evento}</span></td>
@@ -934,9 +948,8 @@ function filterEmergencial(){
         <td style="font-size:11px">${r.sei||'—'}</td>
         <td>${r.nome||'—'}</td>
         <td>${r.dataAtendimento instanceof Date?r.dataAtendimento.toLocaleDateString('pt-BR'):'—'}</td>
-        <td>${r.status||'—'}</td>
       </tr>`).join('')}
-      ${filtered.length>pageSize?`<tr><td colspan="9" style="text-align:center;color:var(--ink3);padding:12px">Exporte para ver todos os ${fmt(filtered.length)} registros.</td></tr>`:''}
+      ${filtered.length>pageSize?`<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:12px">Exporte para ver todos os ${fmt(filtered.length)} registros.</td></tr>`:''}
       </tbody></table></div>`;
 
   // Store for export
