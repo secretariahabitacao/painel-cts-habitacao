@@ -998,12 +998,12 @@ function renderEmergencial(){
   evEl.innerHTML='<option value="">Todos ('+evSet.length+')</option>'+evSet.map(e=>`<option value="${e}">${e}</option>`).join('');
   const regEl=document.getElementById('emg-reg');
   regEl.innerHTML='<option value="">Todas ('+regSet.length+')</option>'+regSet.map(r=>`<option value="${r}">${r}</option>`).join('');
-  // Set date range defaults
-  const dates=recs.map(r=>r.dataOcorrencia).filter(d=>d instanceof Date).sort((a,b)=>a-b);
+  // Set date range defaults — usa dataAtendimento como referência
+  const allDates=[...recs.map(r=>r.dataAtendimento),...recs.map(r=>r.dataOcorrencia)].filter(d=>d instanceof Date).sort((a,b)=>a-b);
   const _p=n=>String(n).padStart(2,'0');
   const _ld=d=>d.getFullYear()+'-'+_p(d.getMonth()+1)+'-'+_p(d.getDate());
-  if(dates.length){
-    document.getElementById('emg-dt-ini').value=_ld(dates[0]);
+  if(allDates.length){
+    document.getElementById('emg-dt-ini').value=_ld(allDates[0]);
     document.getElementById('emg-dt-fim').value=_ld(new Date());
   }
   // Events
@@ -1026,8 +1026,13 @@ function filterEmergencial(){
     if(fEv&&r.evento!==fEv)return false;
     if(fReg&&r.regional!==fReg)return false;
     if(fSei){const h=[r.sei,r.nomeArea,r.nome,r.subprefeitura].map(v=>String(v||'').toLowerCase().trim()).join(' ');if(!h.includes(fSei))return false;}
-    const dt=r.dataOcorrencia;
-    if(dt instanceof Date){if(fDtIni&&dt<fDtIni)return false;if(fDtFim&&dt>fDtFim)return false;}
+    // Filtra por DATA ATENDIMENTO (prioridade) ou DATA OCORRÊNCIA
+    const dt=r.dataAtendimento instanceof Date?r.dataAtendimento:(r.dataOcorrencia instanceof Date?r.dataOcorrencia:null);
+    if(fDtIni||fDtFim){
+      if(!dt)return false; // sem data = excluído quando período está definido
+      if(fDtIni&&dt<fDtIni)return false;
+      if(fDtFim&&dt>fDtFim)return false;
+    }
     return true;
   });
 
@@ -1038,7 +1043,9 @@ function filterEmergencial(){
   filtered.forEach(r=>{
     evCounts[r.evento]=(evCounts[r.evento]||0)+1;
     regCounts[r.regional]=(regCounts[r.regional]||0)+1;
-    if(r.dataOcorrencia instanceof Date)yrCounts[r.dataOcorrencia.getFullYear()]=(yrCounts[r.dataOcorrencia.getFullYear()]||0)+1;
+    // Usa dataAtendimento pra contar por ano
+    const dt=r.dataAtendimento instanceof Date?r.dataAtendimento:(r.dataOcorrencia instanceof Date?r.dataOcorrencia:null);
+    if(dt)yrCounts[dt.getFullYear()]=(yrCounts[dt.getFullYear()]||0)+1;
     if(r.nomeArea)areaCounts[r.nomeArea]=(areaCounts[r.nomeArea]||0)+1;
   });
   const topEvento=Object.entries(evCounts).sort((a,b)=>b[1]-a[1])[0];
