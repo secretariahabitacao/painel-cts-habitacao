@@ -139,6 +139,30 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 .f-bar{height:100%;border-radius:3px}
 .f-row .f-ct{font-size:13px;font-weight:700;text-align:right}
 
+/* DEVOLUTIVAS */
+.dev-section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);margin-top:20px}
+.dev-section h3{font-size:14px;font-weight:700;margin-bottom:16px}
+.dev-controls{display:flex;gap:12px;margin-bottom:16px;align-items:flex-end;flex-wrap:wrap}
+.dev-controls select{padding:8px 12px;border:1px solid var(--line);border-radius:var(--radius);font-family:inherit;font-size:13px;min-width:200px}
+.dev-controls .btn{margin-left:auto}
+.dev-summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:20px}
+.dev-row{display:grid;grid-template-columns:1fr 80px 80px;background:var(--surface);padding:10px 14px;font-size:13px}
+.dev-row.header{background:var(--teal);color:#fff;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.dev-row:not(.header):hover{background:var(--teal-soft);cursor:pointer}
+.dev-row .pct{text-align:right}
+.dev-row .qty{text-align:center;font-weight:600}
+.dev-records{max-height:400px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--radius)}
+.dev-records table{width:100%;border-collapse:collapse;font-size:12px}
+.dev-records th{background:var(--bg);padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);font-weight:600;position:sticky;top:0;z-index:1}
+.dev-records td{padding:7px 10px;border-bottom:1px solid var(--line-soft)}
+.dev-records tr:hover td{background:var(--teal-soft)}
+.dev-badge{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600}
+.dev-badge.aprovado{background:var(--green-light);color:var(--green)}
+.dev-badge.contrato{background:#E8F5EC;color:#1B7A3D}
+.dev-badge.pendente{background:var(--gold-light);color:#8B6914}
+.dev-badge.excluido,.dev-badge.reprovado,.dev-badge.desistencia{background:var(--red-light);color:var(--red)}
+.dev-badge.outros{background:var(--line-soft);color:var(--ink3)}
+
 /* PLACEHOLDER */
 .placeholder{text-align:center;padding:80px 32px;background:var(--surface);border:2px dashed var(--line);border-radius:var(--radius)}
 .placeholder h2{font-size:22px;color:var(--ink);margin-bottom:8px}
@@ -385,7 +409,29 @@ function parsePPE(wb) {
   }
 
   emps.forEach(emp=>{const q=quantMap[emp.nome.toUpperCase()];if(q){emp.q=q;}});
-  S.ppe={emps,quantTotals,quantMap,loaded:true};
+
+  // --- AQUIEMP (registros individuais) ---
+  const aquiMap={};
+  const aName=wb.SheetNames.find(n=>n.toLowerCase().includes('aquiemp'));
+  if(aName){
+    const raw=XLSX.utils.sheet_to_json(wb.Sheets[aName],{header:1,defval:null,blankrows:false});
+    // Row 0 = headers, data starts row 1
+    for(let i=1;i<raw.length;i++){
+      const r=raw[i];if(!r||!r[2])continue;
+      const emp=String(r[2]).trim().toUpperCase();
+      if(!aquiMap[emp])aquiMap[emp]=[];
+      aquiMap[emp].push({
+        demanda:r[0]||'',nome:r[4]||'',empreendimento:r[2]||'',
+        inscricao:r[3]||'',devolutiva:r[7]||'',usuario:r[8]||'',
+        dataDevolutiva:r[9]||'',telefone:r[10]||'',celular:r[11]||'',
+        email:r[12]||'',composicao:r[19]||'',contrato:r[22]||'',
+        motivoDevolutiva:r[28]||'',statusDossie:r[29]||'',
+        tipologia:r[30]||'',bloco:r[31]||'',andar:r[32]||'',apto:r[33]||''
+      });
+    }
+  }
+
+  S.ppe={emps,quantTotals,quantMap,aquiMap,loaded:true};
 }
 
 // ============================================================
@@ -603,6 +649,117 @@ function renderEmpDetail(){
   } else {
     document.getElementById('ppe-funil').innerHTML='';
   }
+
+  // --- DEVOLUTIVAS (AquiEmp) ---
+  renderDevolutivas(emp);
+}
+
+function renderDevolutivas(emp){
+  const records=S.ppe.aquiMap[emp.nome.toUpperCase()]||[];
+  if(records.length===0){return;}
+
+  // Count by devolutiva
+  const counts={};
+  records.forEach(r=>{
+    const d=r.devolutiva||'(sem devolutiva)';
+    counts[d]=(counts[d]||0)+1;
+  });
+  const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const total=records.length;
+  const devTypes=['Todos',...sorted.map(s=>s[0])];
+
+  const devBadge=d=>{
+    const dl=d.toLowerCase();
+    if(dl.includes('aprovado'))return'aprovado';
+    if(dl.includes('contrato'))return'contrato';
+    if(dl.includes('pendente')||dl.includes('sem contato'))return'pendente';
+    if(dl.includes('exclu'))return'excluido';
+    if(dl.includes('reprov'))return'reprovado';
+    if(dl.includes('desist')||dl.includes('falec')||dl.includes('transfer'))return'desistencia';
+    return'outros';
+  };
+
+  const detailEl=document.getElementById('ppe-detail');
+  detailEl.innerHTML+=`<div class="dev-section" id="dev-section">
+    <h3>Demanda / Devolutiva — ${emp.nome}</h3>
+    <div class="dev-controls">
+      <select id="dev-filter">
+        ${devTypes.map(d=>`<option value="${d}">${d}${d!=='Todos'?' ('+counts[d]+')':' ('+total+')'}</option>`).join('')}
+      </select>
+      <button class="btn" id="btn-dev-export">Exportar Excel</button>
+    </div>
+    <div id="dev-summary">
+      <div class="dev-row header"><div>Devolutiva</div><div class="qty">Qtd</div><div class="pct">%</div></div>
+      ${sorted.map(([d,c])=>`<div class="dev-row" data-dev="${d}" onclick="document.getElementById('dev-filter').value='${d.replace(/'/g,"\\'")}';filterDevolutivas();">
+        <div><span class="dev-badge ${devBadge(d)}">${d}</span></div>
+        <div class="qty">${c}</div>
+        <div class="pct">${(c/total*100).toFixed(1)}%</div>
+      </div>`).join('')}
+      <div class="dev-row" style="font-weight:700;border-top:2px solid var(--teal)"><div>TOTAL</div><div class="qty">${total}</div><div class="pct">100%</div></div>
+    </div>
+    <div id="dev-records-wrap"></div>
+  </div>`;
+
+  // Store records for filtering
+  window._devRecords=records;
+  window._devEmpNome=emp.nome;
+
+  document.getElementById('dev-filter').onchange=filterDevolutivas;
+  document.getElementById('btn-dev-export').onclick=exportDevolutivas;
+
+  // Show all initially
+  filterDevolutivas();
+}
+
+function filterDevolutivas(){
+  const filter=document.getElementById('dev-filter').value;
+  const records=window._devRecords||[];
+  const filtered=filter==='Todos'?records:records.filter(r=>(r.devolutiva||'(sem devolutiva)')===filter);
+
+  const wrap=document.getElementById('dev-records-wrap');
+  wrap.innerHTML=`<div style="margin-bottom:8px;font-size:12px;color:var(--ink3)">${filtered.length} registro${filtered.length!==1?'s':''}</div>
+  <div class="dev-records"><table>
+    <thead><tr><th>Nome</th><th>Inscrição</th><th>Devolutiva</th><th>Data</th><th>Status Dossiê</th><th>Tipologia</th><th>Bloco</th><th>Apto</th></tr></thead>
+    <tbody>${filtered.slice(0,200).map(r=>`<tr>
+      <td>${r.nome}</td>
+      <td>${r.inscricao}</td>
+      <td><span class="dev-badge ${getBadgeClass(r.devolutiva)}">${r.devolutiva||'—'}</span></td>
+      <td>${r.dataDevolutiva||'—'}</td>
+      <td>${r.statusDossie||'—'}</td>
+      <td>${r.tipologia||'—'}</td>
+      <td>${r.bloco||'—'}</td>
+      <td>${r.apto||'—'}</td>
+    </tr>`).join('')}
+    ${filtered.length>200?`<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:12px">Mostrando 200 de ${filtered.length} registros. Exporte pra ver todos.</td></tr>`:''}
+    </tbody></table></div>`;
+}
+
+function getBadgeClass(d){
+  if(!d)return'outros';
+  const dl=d.toLowerCase();
+  if(dl.includes('aprovado'))return'aprovado';
+  if(dl.includes('contrato'))return'contrato';
+  if(dl.includes('pendente')||dl.includes('sem contato'))return'pendente';
+  if(dl.includes('exclu'))return'excluido';
+  if(dl.includes('reprov'))return'reprovado';
+  if(dl.includes('desist')||dl.includes('falec')||dl.includes('transfer'))return'desistencia';
+  return'outros';
+}
+
+function exportDevolutivas(){
+  const filter=document.getElementById('dev-filter').value;
+  const records=window._devRecords||[];
+  const filtered=filter==='Todos'?records:records.filter(r=>(r.devolutiva||'(sem devolutiva)')===filter);
+  const empNome=window._devEmpNome||'empreendimento';
+
+  const headers=['Nome','Inscrição','Empreendimento','Demanda','Devolutiva','Data Devolutiva','Usuário','Telefone','Celular','Email','Composição Ranking','Contrato','Motivo Devolutiva','Status Dossiê','Tipologia','Bloco','Andar','Apto'];
+  const rows=filtered.map(r=>[r.nome,r.inscricao,r.empreendimento,r.demanda,r.devolutiva,r.dataDevolutiva,r.usuario,r.telefone,r.celular,r.email,r.composicao,r.contrato,r.motivoDevolutiva,r.statusDossie,r.tipologia,r.bloco,r.andar,r.apto]);
+
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Devolutivas');
+  const fileName=`${empNome.replace(/[^a-zA-Z0-9]/g,'_')}_${filter==='Todos'?'TODOS':filter.replace(/[^a-zA-Z0-9]/g,'_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb,fileName);
 }
 
 // ============================================================
