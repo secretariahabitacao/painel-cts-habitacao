@@ -62,7 +62,7 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 .selectors{display:flex;gap:12px;margin-bottom:24px;align-items:stretch;flex-wrap:wrap}
 .sel-group{display:flex;flex-direction:column;gap:4px;min-width:200px}
 .sel-group label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);font-weight:600}
-.sel-group select,.sel-group input{padding:10px 14px;border:1px solid var(--line);border-radius:var(--radius);font-family:inherit;font-size:13px;background:var(--surface);color:var(--ink);cursor:pointer;appearance:auto;outline:none;height:42px}
+.sel-group select{padding:10px 14px;border:1px solid var(--line);border-radius:var(--radius);font-family:inherit;font-size:13px;background:var(--surface);color:var(--ink);cursor:pointer;appearance:auto;outline:none}
 .sel-group select:focus{border-color:var(--teal)}
 
 /* VIEW LABEL */
@@ -891,27 +891,30 @@ function filterEmergencial(){
   const teal='#009999',green='#1B7A3D',gold='#C9A227',red='#CC3333';
   const evColors={'ENCHENTE':teal,'INCÊNDIO':'#CC3333','DESABAMENTO':'#C05621','QUEDA DE ÁRVORE':'#2D8B4E','DESLIZAMENTO':'#C9A227','SOLAPAMENTO':'#6B46C1','DESTELHAMENTO':'#2B6CB0','RISCO':'#888'};
 
-  // Chart containers — esconde gráfico de eventos quando um evento específico está selecionado
-  const showEvChart=!fEv;
+  // Chart containers - esconde graficos quando filtro especifico ativo
+  const showEv=!fEv;
+  const showReg=!fReg;
   document.getElementById('emg-charts').innerHTML=`
-    <div class="charts-row">
-      ${showEvChart?'<div class="chart-box"><canvas id="emg-chart-ev"></canvas></div>':''}
-      <div class="chart-box"><canvas id="emg-chart-reg"></canvas></div>
-    </div>
+    ${(showEv||showReg)?`<div class="charts-row" style="grid-template-columns:${showEv&&showReg?'1fr 1fr':'1fr'}">
+      ${showEv?'<div class="chart-box"><canvas id="emg-chart-ev"></canvas></div>':''}
+      ${showReg?'<div class="chart-box"><canvas id="emg-chart-reg"></canvas></div>':''}
+    </div>`:''}
     <div class="chart-box full" style="margin-bottom:16px"><canvas id="emg-chart-timeline"></canvas></div>`;
 
-  // Bar chart: eventos (só quando "Todos" está selecionado)
-  if(showEvChart){
-    const evSorted=Object.entries(evCounts).sort((a,b)=>b[1]-a[1]);
-    window._emgCharts.push(new Chart(document.getElementById('emg-chart-ev'),{
-      type:'bar',
-      data:{labels:evSorted.map(e=>e[0]),datasets:[{data:evSorted.map(e=>e[1]),backgroundColor:evSorted.map(e=>evColors[e[0]]||'#999'),borderRadius:4}]},
-      options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Tipo de Evento',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
-        scales:{y:{grid:{display:false},ticks:{font:{size:11,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:10,family:'Arial'},maxRotation:45}}}}
-    }));
+  // Bar chart: eventos (so quando Todos)
+  if(showEv){
+  const evSorted=Object.entries(evCounts).sort((a,b)=>b[1]-a[1]);
+  window._emgCharts.push(new Chart(document.getElementById('emg-chart-ev'),{
+    type:'bar',
+    data:{labels:evSorted.map(e=>e[0]),datasets:[{data:evSorted.map(e=>e[1]),backgroundColor:evSorted.map(e=>evColors[e[0]]||'#999'),borderRadius:4}]},
+    options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Tipo de Evento',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
+      scales:{y:{grid:{display:false},ticks:{font:{size:11,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:10,family:'Arial'},maxRotation:45}}}}
+  }));
+
   }
 
-  // Doughnut: regionais
+  // Doughnut: regionais (so quando Todas)
+  if(showReg){
   const regSorted=Object.entries(regCounts).sort((a,b)=>b[1]-a[1]);
   const regColors=[teal,green,gold,'#2B6CB0','#6B46C1','#C05621','#CC3333','#888'];
   window._emgCharts.push(new Chart(document.getElementById('emg-chart-reg'),{
@@ -919,14 +922,25 @@ function filterEmergencial(){
     data:{labels:regSorted.map(r=>r[0]),datasets:[{data:regSorted.map(r=>r[1]),backgroundColor:regColors.slice(0,regSorted.length),borderWidth:2,borderColor:'#fff'}]},
     options:{responsive:true,plugins:{title:{display:true,text:'Distribuição por Regional',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}
   }));
+  }
 
-  // Timeline: atendimentos por ANO
-  const yrSorted=Object.entries(yrCounts).sort((a,b)=>a[0]-b[0]);
+  // Timeline: atendimentos por mês
+  const monthCounts={};
+  filtered.forEach(r=>{
+    if(r.dataOcorrencia instanceof Date){
+      const key=r.dataOcorrencia.getFullYear()+'-'+String(r.dataOcorrencia.getMonth()+1).padStart(2,'0');
+      monthCounts[key]=(monthCounts[key]||0)+1;
+    }
+  });
+  const months=Object.keys(monthCounts).sort();
+  const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const monthLabels=months.map(m=>{const[y,mo]=m.split('-');return meses[parseInt(mo)-1]+'/'+y.slice(2);});
+
   window._emgCharts.push(new Chart(document.getElementById('emg-chart-timeline'),{
     type:'bar',
-    data:{labels:yrSorted.map(y=>y[0].toString()),datasets:[{data:yrSorted.map(y=>y[1]),backgroundColor:teal,borderRadius:4}]},
-    options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Ano',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
-      scales:{y:{grid:{color:'var(--line-soft)'},ticks:{font:{size:12,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:13,family:'Arial'}}}}}
+    data:{labels:monthLabels,datasets:[{data:months.map(m=>monthCounts[m]),backgroundColor:teal,borderRadius:3}]},
+    options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Mês',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
+      scales:{y:{grid:{color:'var(--line-soft)'},ticks:{font:{size:11,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:10,family:'Arial'},maxRotation:45}}}}
   }));
 
   // Table
@@ -938,7 +952,7 @@ function filterEmergencial(){
       <button class="btn" onclick="exportEmergencial()">Exportar Excel</button>
     </div>
     <div class="dev-records"><table>
-      <thead><tr><th>Data Ocorr.</th><th>Evento</th><th>Área</th><th>Regional</th><th>Subprefeitura</th><th>Nº SEI</th><th>Beneficiário</th><th>Data Atend.</th></tr></thead>
+      <thead><tr><th>Data Ocorr.</th><th>Evento</th><th>Área</th><th>Regional</th><th>Subprefeitura</th><th>Nº SEI</th><th>Beneficiário</th><th>Data Atend.</th><th>Status</th></tr></thead>
       <tbody>${shown.map(r=>`<tr>
         <td>${r.dataOcorrencia instanceof Date?r.dataOcorrencia.toLocaleDateString('pt-BR'):'—'}</td>
         <td><span class="dev-badge ${r.evento==='ENCHENTE'?'outros':r.evento==='INCÊNDIO'?'excluido':'pendente'}" style="background:${(evColors[r.evento]||'#999')+'22'};color:${evColors[r.evento]||'#999'}">${r.evento}</span></td>
@@ -948,8 +962,9 @@ function filterEmergencial(){
         <td style="font-size:11px">${r.sei||'—'}</td>
         <td>${r.nome||'—'}</td>
         <td>${r.dataAtendimento instanceof Date?r.dataAtendimento.toLocaleDateString('pt-BR'):'—'}</td>
+        <td>${r.status||'—'}</td>
       </tr>`).join('')}
-      ${filtered.length>pageSize?`<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:12px">Exporte para ver todos os ${fmt(filtered.length)} registros.</td></tr>`:''}
+      ${filtered.length>pageSize?`<tr><td colspan="9" style="text-align:center;color:var(--ink3);padding:12px">Exporte para ver todos os ${fmt(filtered.length)} registros.</td></tr>`:''}
       </tbody></table></div>`;
 
   // Store for export
