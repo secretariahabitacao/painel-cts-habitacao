@@ -228,7 +228,6 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
         <div class="chart-box" id="box-status"><canvas id="chart-status"></canvas></div>
         <div class="chart-box" id="box-dts"><canvas id="chart-dts"></canvas></div>
       </div>
-      <div class="chart-box full" id="box-uhs"><canvas id="chart-uhs"></canvas></div>
       <div class="chart-box full" id="box-obra"><canvas id="chart-obra"></canvas></div>
     </div>
     <div id="ppe-funil"></div>
@@ -480,9 +479,9 @@ function renderPPEOverview(){
   window._charts=[];
 
   // Reset canvases
-  ['chart-status','chart-dts','chart-uhs','chart-obra'].forEach(id=>{
-    const box=document.getElementById(id).parentElement;
-    box.innerHTML=`<canvas id="${id}"></canvas>`;
+  ['chart-status','chart-dts','chart-obra'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){const box=el.parentElement;box.innerHTML=`<canvas id="${id}"></canvas>`;}
   });
 
   const teal='#009999',green='#1B7A3D',gold='#C9A227',red='#CC3333';
@@ -523,30 +522,7 @@ function renderPPEOverview(){
     options:{responsive:true,maintainAspectRatio:true,plugins:{title:{display:true,text:'UHs por Regional (DTS)',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyleWidth:8}}}}
   }));
 
-  // --- CHART 3: UHs por Empreendimento (Horizontal Bar) ---
-  const empsSorted=[...emps].sort((a,b)=>b.uhTotal-a.uhTotal).slice(0,25);
-  const empNames=empsSorted.map(e=>e.nome.length>35?e.nome.slice(0,32)+'…':e.nome);
-  const empAprov=empsSorted.map(e=>(e.q?e.q.aprov:e.aprovTotal)||0);
-  const empContr=empsSorted.map(e=>(e.q?e.q.contrato:0));
-  const empPend=empsSorted.map(e=>(e.q?e.q.pend:e.pendTotal)||0);
-  const empRest=empsSorted.map((e,i)=>Math.max(0,e.uhTotal-empAprov[i]-empContr[i]-empPend[i]));
-
-  window._charts.push(new Chart(document.getElementById('chart-uhs'),{
-    type:'bar',
-    data:{labels:empNames,datasets:[
-      {label:'Contrato Assinado',data:empContr,backgroundColor:'#2D8B4E'},
-      {label:'Aprovados',data:empAprov,backgroundColor:green},
-      {label:'Pendentes',data:empPend,backgroundColor:gold},
-      {label:'Outros',data:empRest,backgroundColor:'#DDD'},
-    ]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      onClick:(evt,elements)=>{if(elements.length>0){const i=elements[0].index;S.view.emp=empsSorted[i].nome;document.getElementById('sel-emp').value=S.view.emp;updatePPEView();}},
-      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:11,family:'Arial'}}},y:{stacked:true,grid:{display:false},ticks:{font:{size:11,family:'Arial'}}}},
-      plugins:{title:{display:true,text:'UHs por Empreendimento (clique para detalhar)',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'top',labels:{font:{size:11,family:'Arial'},usePointStyle:true,pointStyleWidth:8,padding:16}}}}
-  }));
-  document.getElementById('chart-uhs').parentElement.style.height=Math.max(300,empsSorted.length*28+80)+'px';
-
-  // --- CHART 4: % Obra por Empreendimento (Horizontal Bar) ---
+  // --- CHART 3: % Obra por Empreendimento (Horizontal Bar) ---
   const empsObra=emps.filter(e=>{const v=num(e.pctObra);return v>0;}).map(e=>{const v=num(e.pctObra);return{nome:e.nome,pct:v<=1.5?v*100:v};}).sort((a,b)=>a.pct-b.pct);
 
   if(empsObra.length>0){
@@ -586,7 +562,6 @@ function renderEmpDetail(){
   const oc=op===null?'zero':op>=95?'high':op>=60?'mid':'low';
 
   document.getElementById('ppe-kpis').innerHTML='';
-  document.getElementById('ppe-cards').innerHTML='';
 
   const aprov=q.aprov||emp.aprovTotal||0;
   const contr=q.contrato||0;
