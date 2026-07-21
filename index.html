@@ -391,64 +391,127 @@ function parsePPE(wb) {
   // --- QUANTITATIVO (fonte única) ---
   const qName=wb.SheetNames.find(n=>n.toLowerCase().includes('quantitativo'));
   if(qName){
-    const raw=XLSX.utils.sheet_to_json(wb.Sheets[qName],{header:1,defval:null});
-    // Encontra a linha com COHAB/SEHAB (sub-header)
-    let subIdx=-1;
+    // Usa sheet_to_json com chaves nomeadas pra cada linha
+    const ws=wb.Sheets[qName];
+    const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+
+    // Encontra as duas linhas de header: grupo (row2) e detalhe (row4)
+    let grpIdx=-1, detIdx=-1;
     for(let j=0;j<Math.min(10,raw.length);j++){
-      if(raw[j]&&raw[j].some(c=>String(c||'')==='COHAB')&&raw[j].some(c=>String(c||'')==='DTS')){subIdx=j;break;}
-    }
-    if(subIdx<0){
-      for(let j=0;j<Math.min(10,raw.length);j++){
-        if(raw[j]&&raw[j].filter(c=>String(c||'')==='COHAB').length>=2){subIdx=j;break;}
+      const r=raw[j];if(!r)continue;
+      const s0=String(r[0]||'').trim();
+      if(s0==='Empreendimento'){
+        // Se tem 'Endereço' ou 'Construtora' ou 'COHAB' na mesma linha, é o header detalhado
+        if(r.some(c=>String(c||'')==='Endereço'||String(c||'')==='Construtora'||String(c||'')==='COHAB')){
+          detIdx=j;
+        } else if(grpIdx<0){
+          grpIdx=j;
+        }
       }
     }
-    if(subIdx<0) subIdx=3; // fallback
+    if(detIdx<0) detIdx=grpIdx>=0?grpIdx+2:3;
 
-    for(let i=subIdx+1;i<raw.length;i++){
+    // Mapeia colunas pelo nome na linha detalhada
+    const hRow=raw[detIdx];
+    // Identifica posição de cada coluna fixa
+    const findCol=(name)=>{
+      for(let c=0;c<hRow.length;c++){if(String(hRow[c]||'').trim()===name)return c;}
+      return -1;
+    };
+    const cEmp=findCol('Empreendimento');
+    const cMod=findCol('Modalidade');
+    const cEnd=findCol('Endereço');
+    const cConst=findCol('Construtora');
+    const cContato=findCol('Contato');
+    const cDts=findCol('DTS');
+    const cTotal=findCol('Total');
+
+    // Encontra 'Evolução Obra %' - pode ter nome variável
+    let cObra=-1;
+    for(let c=0;c<hRow.length;c++){
+      const s=String(hRow[c]||'').toLowerCase();
+      if(s.includes('obra')||s.includes('evolu')){cObra=c;break;}
+    }
+
+    // Encontra UHs: primeiro grupo de COHAB/SEHAB/TOTAL antes do DTS
+    let cUhCohab=-1,cUhSehab=-1,cUhTotal=-1;
+    for(let c=0;c<(cDts>=0?cDts:hRow.length);c++){
+      if(String(hRow[c]||'')==='COHAB'&&cUhCohab<0)cUhCohab=c;
+      if(String(hRow[c]||'')==='SEHAB'&&cUhSehab<0)cUhSehab=c;
+      if(String(hRow[c]||'')==='TOTAL'&&cUhTotal<0)cUhTotal=c;
+    }
+
+    // Encontra pares COHAB/SEHAB APÓS o DTS (são os status)
+    const statusPairs=[];
+    if(cDts>=0){
+      for(let c=cDts+1;c<hRow.length-1;c++){
+        if(String(hRow[c]||'')==='COHAB'&&String(hRow[c+1]||'')==='SEHAB'){
+          statusPairs.push(c);c++;
+        }
+      }
+    }
+    // statusPairs[0]=Termo, [1]=Selec, [2]=Dossie, [3]=Aprov, [4]=Contrato,
+    // [5]=Reprov, [6]=Ausent, [7]=Pend, [8]=Desist, [9]=Desclass, [10]=DemExc
+
+    // Encontra colunas de datas (após Total)
+    let cEscolha=-1,cAssemb=-1,cCnpj=-1,cEntrega=-1;
+    if(cTotal>=0){
+      for(let c=cTotal+1;c<hRow.length;c++){
+        const s=String(hRow[c]||'').toLowerCase();
+        if(s.includes('escolha'))cEscolha=c;
+        else if(s.includes('assemb'))cAssemb=c;
+        else if(s.includes('cnpj'))cCnpj=c;
+        else if(s.includes('entrega'))cEntrega=c;
+      }
+    }
+
+    const gc=(r,c)=>c>=0&&r.length>c?r[c]:null;
+
+    for(let i=detIdx+1;i<raw.length;i++){
       const r=raw[i];if(!r)continue;
-      const nome=String(r[0]||'').trim();
+      const nome=String(gc(r,cEmp)||'').trim();
       if(!nome||nome==='TOTAL'||nome==='Total')continue;
 
-      const mod=normMod(r[1]);
+      const mod=normMod(gc(r,cMod));
       const e={
         nome:nome,modalidade:mod,programa:modToPrograma(mod),
-        endereco:r[2]||'',construtora:r[3]||'',contatos:r[4]||'',
-        pctObra:r[5],
-        uhCohab:num(r[6]),uhSehab:num(r[7]),uhTotal:num(r[8]),
-        dts:r[9]||'',
-        termoCohab:num(r[10]),termoSehab:num(r[11]),
-        selecCohab:num(r[12]),selecSehab:num(r[13]),
-        dossieCohab:num(r[14]),dossieSehab:num(r[15]),
-        aprovCohab:num(r[16]),aprovSehab:num(r[17]),
-        contratoCohab:num(r[18]),contratoSehab:num(r[19]),
-        reprovCohab:num(r[20]),reprovSehab:num(r[21]),
-        ausentCohab:num(r[22]),ausentSehab:num(r[23]),
-        pendCohab:num(r[24]),pendSehab:num(r[25]),
-        desistCohab:num(r[26]),desistSehab:num(r[27]),
-        desclassCohab:num(r[28]),desclassSehab:num(r[29]),
-        demExcCohab:num(r[30]),demExcSehab:num(r[31]),
-        total:num(r[32]),
-        dataEscolha:r[33],dataAssembleia:r[34],cnpjEmitido:r[35],entrega:r[36]
+        endereco:gc(r,cEnd)||'',construtora:gc(r,cConst)||'',contatos:gc(r,cContato)||'',
+        pctObra:gc(r,cObra),
+        uhCohab:num(gc(r,cUhCohab)),uhSehab:num(gc(r,cUhSehab)),uhTotal:num(gc(r,cUhTotal)),
+        dts:gc(r,cDts)||'',
+        termoCohab:num(gc(r,statusPairs[0])),termoSehab:num(gc(r,statusPairs[0]+1)),
+        selecCohab:num(gc(r,statusPairs[1])),selecSehab:num(gc(r,statusPairs[1]+1)),
+        dossieCohab:num(gc(r,statusPairs[2])),dossieSehab:num(gc(r,statusPairs[2]+1)),
+        aprovCohab:num(gc(r,statusPairs[3])),aprovSehab:num(gc(r,statusPairs[3]+1)),
+        contratoCohab:num(gc(r,statusPairs[4])),contratoSehab:num(gc(r,statusPairs[4]+1)),
+        reprovCohab:num(gc(r,statusPairs[5])),reprovSehab:num(gc(r,statusPairs[5]+1)),
+        ausentCohab:num(gc(r,statusPairs[6])),ausentSehab:num(gc(r,statusPairs[6]+1)),
+        pendCohab:num(gc(r,statusPairs[7])),pendSehab:num(gc(r,statusPairs[7]+1)),
+        desistCohab:num(gc(r,statusPairs[8])),desistSehab:num(gc(r,statusPairs[8]+1)),
+        desclassCohab:num(gc(r,statusPairs[9])),desclassSehab:num(gc(r,statusPairs[9]+1)),
+        demExcCohab:num(gc(r,statusPairs[10])),demExcSehab:num(gc(r,statusPairs[10]+1)),
+        total:num(gc(r,cTotal)),
+        dataEscolha:gc(r,cEscolha),dataAssembleia:gc(r,cAssemb),
+        cnpjEmitido:gc(r,cCnpj),entrega:gc(r,cEntrega)
       };
       ['termo','selec','dossie','aprov','contrato','reprov','ausent','pend','desist','desclass','demExc'].forEach(k=>{
         e[k]=(e[k+'Cohab']||0)+(e[k+'Sehab']||0);
       });
       e.aprovTotal=e.aprov;e.pendTotal=e.pend;
-      // q object pra compatibilidade
       e.q=e;
       emps.push(e);
     }
 
     // Totais
-    const totRow=raw.find(r=>r&&String(r[0]||'').trim()==='TOTAL');
+    const totRow=raw.find(r=>r&&String(gc(r,cEmp)||'').trim()==='TOTAL');
     if(totRow){
-      quantTotals={uhTotal:num(totRow[8]),
-        termo:num(totRow[10])+num(totRow[11]),selec:num(totRow[12])+num(totRow[13]),
-        dossie:num(totRow[14])+num(totRow[15]),aprov:num(totRow[16])+num(totRow[17]),
-        contrato:num(totRow[18])+num(totRow[19]),reprov:num(totRow[20])+num(totRow[21]),
-        ausent:num(totRow[22])+num(totRow[23]),pend:num(totRow[24])+num(totRow[25]),
-        desist:num(totRow[26])+num(totRow[27]),desclass:num(totRow[28])+num(totRow[29]),
-        demExc:num(totRow[30])+num(totRow[31])};
+      quantTotals={uhTotal:num(gc(totRow,cUhTotal))};
+      const keys=['termo','selec','dossie','aprov','contrato','reprov','ausent','pend','desist','desclass','demExc'];
+      keys.forEach((k,i)=>{
+        if(statusPairs[i]!==undefined){
+          quantTotals[k]=num(gc(totRow,statusPairs[i]))+num(gc(totRow,statusPairs[i]+1));
+        } else { quantTotals[k]=0; }
+      });
     }
   }
 
