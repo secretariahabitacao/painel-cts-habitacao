@@ -228,7 +228,6 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
         <div class="chart-box" id="box-status"><canvas id="chart-status"></canvas></div>
         <div class="chart-box" id="box-dts"><canvas id="chart-dts"></canvas></div>
       </div>
-      <div class="chart-box full" id="box-obra"><canvas id="chart-obra"></canvas></div>
     </div>
     <div id="ppe-funil"></div>
   </div>
@@ -479,7 +478,7 @@ function renderPPEOverview(){
   window._charts=[];
 
   // Reset canvases
-  ['chart-status','chart-dts','chart-obra'].forEach(id=>{
+  ['chart-status','chart-dts'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){const box=el.parentElement;box.innerHTML=`<canvas id="${id}"></canvas>`;}
   });
@@ -507,7 +506,7 @@ function renderPPEOverview(){
   window._charts.push(new Chart(document.getElementById('chart-status'),{
     type:'doughnut',
     data:{labels:statusData.map(i=>i.l),datasets:[{data:statusData.map(i=>i.v),backgroundColor:statusData.map(i=>i.c),borderWidth:2,borderColor:'#fff'}]},
-    options:{responsive:true,maintainAspectRatio:true,plugins:{title:{display:true,text:'Status dos Dossiês',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyleWidth:8}}}}
+    options:{responsive:true,maintainAspectRatio:true,plugins:{title:{display:true,text:'Status dos Dossiês',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}
   }));
 
   // --- CHART 2: UHs por DTS (Doughnut) ---
@@ -519,26 +518,8 @@ function renderPPEOverview(){
   window._charts.push(new Chart(document.getElementById('chart-dts'),{
     type:'doughnut',
     data:{labels:dtsArr.map(d=>d[0]),datasets:[{data:dtsArr.map(d=>d[1]),backgroundColor:dtsColors.slice(0,dtsArr.length),borderWidth:2,borderColor:'#fff'}]},
-    options:{responsive:true,maintainAspectRatio:true,plugins:{title:{display:true,text:'UHs por Regional (DTS)',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyleWidth:8}}}}
+    options:{responsive:true,maintainAspectRatio:true,plugins:{title:{display:true,text:'UHs por Regional (DTS)',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}
   }));
-
-  // --- CHART 3: % Obra por Empreendimento (Horizontal Bar) ---
-  const empsObra=emps.filter(e=>{const v=num(e.pctObra);return v>0;}).map(e=>{const v=num(e.pctObra);return{nome:e.nome,pct:v<=1.5?v*100:v};}).sort((a,b)=>a.pct-b.pct);
-
-  if(empsObra.length>0){
-    document.getElementById('box-obra').style.display='block';
-    window._charts.push(new Chart(document.getElementById('chart-obra'),{
-      type:'bar',
-      data:{labels:empsObra.map(e=>e.nome.length>35?e.nome.slice(0,32)+'…':e.nome),datasets:[{label:'% Obra',data:empsObra.map(e=>e.pct),backgroundColor:empsObra.map(e=>e.pct>=95?green:e.pct>=60?teal:gold),borderRadius:3}]},
-      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-        onClick:(evt,elements)=>{if(elements.length>0){const i=elements[0].index;S.view.emp=empsObra[i].nome;document.getElementById('sel-emp').value=S.view.emp;updatePPEView();}},
-        scales:{x:{max:100,grid:{display:false},ticks:{callback:v=>v+'%',font:{size:11,family:'Arial'}}},y:{grid:{display:false},ticks:{font:{size:11,family:'Arial'}}}},
-        plugins:{title:{display:true,text:'Evolução de Obra por Empreendimento (clique para detalhar)',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}}}
-    }));
-    document.getElementById('chart-obra').parentElement.style.height=Math.max(250,empsObra.length*28+80)+'px';
-  } else {
-    document.getElementById('box-obra').style.display='none';
-  }
 
   // Hide old funil (now using chart)
   document.getElementById('ppe-funil').innerHTML='';
