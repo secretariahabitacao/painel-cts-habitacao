@@ -950,22 +950,19 @@ function showKpiDetail(id, label){
 function parseEmergencial(wb){
   const records=[];
   // Usa APENAS a aba Planilha1
-  const sheetName=wb.SheetNames.find(n=>n==='Planilha1')||wb.SheetNames.find(n=>n.toLowerCase().includes('planilha1'));
+  const sheetName=wb.SheetNames.find(n=>n.trim()==='Planilha1');
   if(!sheetName)return;
 
-  // Força leitura de TODAS as linhas expandindo o range da planilha
   const ws=wb.Sheets[sheetName];
+  // Expande range pra cobrir todas as linhas reais
   if(ws['!ref']){
     const keys=Object.keys(ws).filter(k=>k[0]!=='!');
     let maxRow=0;
     keys.forEach(k=>{const m=k.match(/(\d+)/);if(m)maxRow=Math.max(maxRow,parseInt(m[1]));});
-    if(maxRow>0){
-      const ref=XLSX.utils.decode_range(ws['!ref']);
-      if(maxRow-1>ref.e.r){ref.e.r=maxRow-1;ws['!ref']=XLSX.utils.encode_range(ref);}
-    }
+    if(maxRow>0){const ref=XLSX.utils.decode_range(ws['!ref']);if(maxRow-1>ref.e.r){ref.e.r=maxRow-1;ws['!ref']=XLSX.utils.encode_range(ref);}}
   }
 
-  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,blankrows:true});
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,blankrows:false});
   // Encontra header e mapeia colunas por NOME
   let hIdx=raw.findIndex(r=>r&&r.some(c=>String(c||'').toUpperCase()==='ORDEM'));
   if(hIdx<0)return;
@@ -982,9 +979,11 @@ function parseEmergencial(wb){
     records.push({
       ordem:ordem,
       dataOcorrencia:gd(r,'DATA OCORR\u00CANCIA'),
-      evento:g(r,'EVENTO'),complemento:g(r,'COMPLEMENTO EVENTO'),
-      nomeArea:g(r,'NOME \u00C1REA'),regional:g(r,'REGIONAL'),
-      subprefeitura:g(r,'SUBPREFEITURA'),
+      evento:String(g(r,'EVENTO')||'').toUpperCase().trim(),
+      complemento:g(r,'COMPLEMENTO EVENTO'),
+      nomeArea:String(g(r,'NOME \u00C1REA')||'').trim(),
+      regional:String(g(r,'REGIONAL')||'').toUpperCase().trim(),
+      subprefeitura:String(g(r,'SUBPREFEITURA')||'').trim(),
       sei:g(r,'N\u00BA SEI'),
       dataAtendimento:gd(r,'DATA ATENDIMENTO'),
       nome:g(r,'NOME BENEFICI\u00C1RIO'),
@@ -1109,14 +1108,34 @@ function filterEmergencial(){
   }));
   }
 
-  // Timeline: atendimentos por ANO
-  const yrSorted=Object.entries(yrCounts).sort((a,b)=>a[0]-b[0]);
-  window._emgCharts.push(new Chart(document.getElementById('emg-chart-timeline'),{
-    type:'bar',
-    data:{labels:yrSorted.map(y=>y[0].toString()),datasets:[{data:yrSorted.map(y=>y[1]),backgroundColor:teal,borderRadius:4}]},
-    options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Ano',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
-      scales:{y:{grid:{color:'var(--line-soft)'},ticks:{font:{size:12,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:13,family:'Arial'}}}}}
-  }));
+  // Timeline: mostra MESES se período <= 2 anos, senão ANOS
+  const anos=Object.keys(yrCounts);
+  const usarMeses=anos.length<=2;
+  const mesesNomes=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+  if(usarMeses){
+    const monthCounts={};
+    filtered.forEach(r=>{
+      const dt=r.dataAtendimento instanceof Date?r.dataAtendimento:(r.dataOcorrencia instanceof Date?r.dataOcorrencia:null);
+      if(dt){const key=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');monthCounts[key]=(monthCounts[key]||0)+1;}
+    });
+    const mSorted=Object.keys(monthCounts).sort();
+    const mLabels=mSorted.map(m=>{const[y,mo]=m.split('-');return mesesNomes[parseInt(mo)-1]+'/'+y.slice(2);});
+    window._emgCharts.push(new Chart(document.getElementById('emg-chart-timeline'),{
+      type:'bar',
+      data:{labels:mLabels,datasets:[{data:mSorted.map(m=>monthCounts[m]),backgroundColor:teal,borderRadius:3}]},
+      options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Mês',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
+        scales:{y:{grid:{color:'var(--line-soft)'},ticks:{font:{size:11,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:10,family:'Arial'},maxRotation:45}}}}
+    }));
+  } else {
+    const yrSorted=Object.entries(yrCounts).sort((a,b)=>a[0]-b[0]);
+    window._emgCharts.push(new Chart(document.getElementById('emg-chart-timeline'),{
+      type:'bar',
+      data:{labels:yrSorted.map(y=>y[0].toString()),datasets:[{data:yrSorted.map(y=>y[1]),backgroundColor:teal,borderRadius:4}]},
+      options:{responsive:true,plugins:{title:{display:true,text:'Atendimentos por Ano',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
+        scales:{y:{grid:{color:'var(--line-soft)'},ticks:{font:{size:12,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:13,family:'Arial'}}}}}
+    }));
+  }
 
   // Table
   const pageSize=100;
