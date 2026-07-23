@@ -1206,36 +1206,84 @@ document.getElementById('file-input').onchange=e=>{
 };
 
 // ============================================================
-// AUTO LOAD
+// AUTO LOAD — OneDrive (tempo real) → GitHub (backup)
 // ============================================================
+
+// Converte link de compartilhamento OneDrive pra URL de download
+function onedriveDownloadUrl(shareUrl){
+  // Usa Microsoft Graph API: https://api.onedrive.com/v1.0/shares/{token}/root/content
+  const encoded=btoa(shareUrl).replace(/\//g,'_').replace(/\+/g,'-').replace(/=+$/,'');
+  return 'https://api.onedrive.com/v1.0/shares/u!'+encoded+'/root/content';
+}
+
+// Links do OneDrive (compartilhados)
+const ONEDRIVE_SOURCES={
+  ppe:'https://cloudprodamazhotmail-my.sharepoint.com/:x:/g/personal/thamyressoares_prefeitura_sp_gov_br/IQBpHj1slg43SKppTA4fv9VlAajNrSFKOvM8kK-SoJ2pgcw?e=eeTV97',
+  emergencial:'https://cloudprodamazhotmail-my.sharepoint.com/:x:/g/personal/thamyressoares_prefeitura_sp_gov_br/IQD-E_cVoXVySpbeYVaSNhPEAaUUxnii0X-hkTXbzoZ9JV8?e=S9M4GD'
+};
+
+async function fetchXlsx(url){
+  const r=await fetch(url);
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const buf=await r.arrayBuffer();
+  return XLSX.read(new Uint8Array(buf),{type:'array',cellDates:true});
+}
+
 async function autoLoad(){
-  const files=[
-    {name:'dados-ppe.xlsx',prog:'ppe'},{name:'dados.xlsx',prog:'ppe'},
-    {name:'dados-auxilio.xlsx',prog:'auxilio'},
-    {name:'dados-emergencial.xlsx',prog:'emergencial'},
-    {name:'dados-indenizacao.xlsx',prog:'indenizacao'},
-    {name:'dados-historico.xlsx',prog:'historico'}
+  const progs=[
+    {prog:'ppe',githubFiles:['dados.xlsx','dados-ppe.xlsx']},
+    {prog:'emergencial',githubFiles:['dados-emergencial.xlsx']},
+    {prog:'auxilio',githubFiles:['dados-auxilio.xlsx']},
+    {prog:'indenizacao',githubFiles:['dados-indenizacao.xlsx']},
+    {prog:'historico',githubFiles:['dados-historico.xlsx']}
   ];
 
-  // Mostra "Carregando..." nos que existirem
-  const loadFile=async(f)=>{
+  const loadProg=async(p)=>{
+    const statusEl=document.getElementById('status-'+p.prog);
+    let wb=null;
+
+    // 1. Tenta OneDrive primeiro (dados em tempo real)
+    const odUrl=ONEDRIVE_SOURCES[p.prog];
+    if(odUrl){
+      try{
+        if(statusEl){statusEl.className='prog-status on';statusEl.textContent='Carregando...';}
+        wb=await fetchXlsx(onedriveDownloadUrl(odUrl));
+        if(statusEl){statusEl.textContent='Ativo (OneDrive)';}
+      }catch(e){
+        console.log(p.prog+': OneDrive falhou, tentando GitHub...');
+        wb=null;
+      }
+    }
+
+    // 2. Fallback: GitHub Pages
+    if(!wb){
+      for(const name of p.githubFiles){
+        try{
+          if(statusEl&&statusEl.textContent!=='Ativo (OneDrive)'){statusEl.className='prog-status on';statusEl.textContent='Carregando...';}
+          wb=await fetchXlsx(name+'?v='+Date.now());
+          if(statusEl){statusEl.textContent='Ativo';}
+          break;
+        }catch(e){}
+      }
+    }
+
+    if(!wb){
+      if(statusEl&&statusEl.textContent==='Carregando...'){statusEl.className='prog-status off';statusEl.textContent='Em breve';}
+      return;
+    }
+
+    // Parseia
     try{
-      const r=await fetch(f.name+'?v='+Date.now());if(!r.ok)return;
-      const statusEl=document.getElementById('status-'+f.prog);
-      if(statusEl){statusEl.className='prog-status on';statusEl.textContent='Carregando...';}
-      const buf=await r.arrayBuffer();
-      const wb=XLSX.read(new Uint8Array(buf),{type:'array',cellDates:true});
-      if(f.prog==='ppe'){parsePPE(wb);}
-      if(f.prog==='emergencial'){parseEmergencial(wb);}
-      if(statusEl){statusEl.textContent='Ativo';}
-    }catch(e){
-      const statusEl=document.getElementById('status-'+f.prog);
-      if(statusEl&&statusEl.textContent==='Carregando...'){statusEl.className='prog-status off';statusEl.textContent='Erro';}
+      if(p.prog==='ppe')parsePPE(wb);
+      if(p.prog==='emergencial')parseEmergencial(wb);
+    }catch(err){
+      console.error(p.prog+': erro ao parsear',err);
+      if(statusEl){statusEl.className='prog-status off';statusEl.textContent='Erro';}
     }
   };
 
   // Carrega todos em paralelo
-  await Promise.all(files.map(f=>loadFile(f)));
+  await Promise.all(progs.map(p=>loadProg(p)));
   selectProg('ppe');
 }
 autoLoad();
