@@ -301,12 +301,17 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 
   <!-- INDENIZAÇÃO CONTENT -->
   <div class="prog-content" id="prog-indenizacao">
-    <div class="placeholder">
-      <h2>Indenização</h2>
-      <p>Carregue a planilha de processos indenizatórios para visualizar os dados.</p>
-      <button class="ph-btn" onclick="uploadFor('indenizacao')">Carregar planilha</button>
-      <input type="file" id="file-indenizacao" accept=".xlsx,.xls" style="display:none">
+    <div class="selectors" id="ind-filters">
+      <div class="sel-group"><label>Regional</label><select id="ind-reg"><option value="">Todas</option></select></div>
+      <div class="sel-group"><label>Área</label><select id="ind-area"><option value="">Todas</option></select></div>
+      <div class="sel-group"><label>Uso Imóvel</label><select id="ind-uso"><option value="">Todos</option></select></div>
+      <div class="sel-group"><label>Situação Residente</label><select id="ind-sit"><option value="">Todas</option></select></div>
+      <div class="sel-group search-group"><label>Buscar</label><input type="text" id="ind-busca" placeholder="Nome, selo..."></div>
     </div>
+    <div class="view-label" id="ind-label"></div>
+    <div id="ind-kpis" class="kpi-row"></div>
+    <div id="ind-charts"></div>
+    <div id="ind-table-section"></div>
   </div>
 
   <!-- HISTÓRICO CONTENT -->
@@ -553,6 +558,7 @@ function selectProg(prog) {
 
   if(prog==='ppe'&&S.ppe.loaded){renderPPE();}
   if(prog==='emergencial'&&S.emergencial.loaded){renderEmergencial();}
+  if(prog==='indenizacao'&&S.indenizacao.loaded){renderIndenizacao();}
 }
 
 // ============================================================
@@ -1206,6 +1212,160 @@ document.getElementById('file-input').onchange=e=>{
 };
 
 // ============================================================
+// INDENIZAÇÃO
+// ============================================================
+function parseIndenizacao(wb, regional, areaNome){
+  const records=[];
+  const sheetName=wb.SheetNames.find(n=>n.toUpperCase().includes('PRIORIDADE'))||wb.SheetNames[0];
+  if(!sheetName)return records;
+  const raw=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:null});
+  for(let i=2;i<raw.length;i++){
+    const r=raw[i];if(!r||r.length<10)continue;
+    const area=r[1];if(!area||typeof area==='number'||String(area).trim()==='ÁREA')continue;
+    const usoImovel=String(r[7]||'').trim();
+    const situacao=String(r[8]||'').trim();
+    if(!usoImovel||usoImovel==='USO IMÓVEL')continue;
+    const valor=typeof r[33]==='number'?r[33]:0;
+    records.push({
+      regional:regional||'',fonte:areaNome||'',area:String(area).trim(),
+      selo:r[2]||'',titular:r[3]||'',ocupacao:r[6]||'',
+      usoImovel:usoImovel,situacao:situacao,
+      cadastro:r[12]||'',tipoAtendimento:r[13]||'',
+      valor:valor,
+      status:r[34]||'',statusPgto:r[35]||''
+    });
+  }
+  return records;
+}
+
+function renderIndenizacao(){
+  const recs=S.indenizacao.records||[];
+  if(!recs.length)return;
+  const regSet=[...new Set(recs.map(r=>r.regional).filter(Boolean))].sort();
+  const areaSet=[...new Set(recs.map(r=>r.fonte).filter(Boolean))].sort();
+  const usoSet=[...new Set(recs.map(r=>r.usoImovel).filter(Boolean))].sort();
+  const sitSet=[...new Set(recs.map(r=>r.situacao).filter(Boolean))].sort();
+
+  document.getElementById('ind-reg').innerHTML='<option value="">Todas ('+regSet.length+')</option>'+regSet.map(r=>`<option value="${r}">${r}</option>`).join('');
+  document.getElementById('ind-area').innerHTML='<option value="">Todas ('+areaSet.length+')</option>'+areaSet.map(a=>`<option value="${a}">${a}</option>`).join('');
+  document.getElementById('ind-uso').innerHTML='<option value="">Todos ('+usoSet.length+')</option>'+usoSet.map(u=>`<option value="${u}">${u}</option>`).join('');
+  document.getElementById('ind-sit').innerHTML='<option value="">Todas ('+sitSet.length+')</option>'+sitSet.map(s=>`<option value="${s}">${s}</option>`).join('');
+
+  ['ind-reg','ind-area','ind-uso','ind-sit'].forEach(id=>{document.getElementById(id).onchange=filterIndenizacao;});
+  document.getElementById('ind-busca').oninput=filterIndenizacao;
+  filterIndenizacao();
+}
+
+function filterIndenizacao(){
+  const recs=S.indenizacao.records;
+  const fReg=document.getElementById('ind-reg').value;
+  const fArea=document.getElementById('ind-area').value;
+  const fUso=document.getElementById('ind-uso').value;
+  const fSit=document.getElementById('ind-sit').value;
+  const fBusca=document.getElementById('ind-busca').value.toLowerCase();
+
+  let filtered=recs.filter(r=>{
+    if(fReg&&r.regional!==fReg)return false;
+    if(fArea&&r.fonte!==fArea)return false;
+    if(fUso&&r.usoImovel!==fUso)return false;
+    if(fSit&&r.situacao!==fSit)return false;
+    if(fBusca){const h=[r.area,r.titular,r.selo,r.tipoAtendimento].map(v=>String(v||'').toLowerCase()).join(' ');if(!h.includes(fBusca))return false;}
+    return true;
+  });
+
+  document.getElementById('ind-label').innerHTML=`<span class="crumb">Indenização</span> › ${fmt(filtered.length)} imóve${filtered.length!==1?'is':'l'}`;
+
+  // KPIs
+  const comValor=filtered.filter(r=>r.valor>0);
+  const totalValor=comValor.reduce((s,r)=>s+r.valor,0);
+  const areas=new Set(filtered.map(r=>r.area)).size;
+  const fontes=new Set(filtered.map(r=>r.fonte)).size;
+
+  document.getElementById('ind-kpis').innerHTML=[
+    {l:'Imóveis',v:fmt(filtered.length),d:fontes+' área'+(fontes!==1?'s':''),c:''},
+    {l:'Com Valor Definido',v:fmt(comValor.length),d:filtered.length?pct(comValor.length/filtered.length,0)+' do total':'',c:'success'},
+    {l:'Valor Total',v:'R$ '+totalValor.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}),d:'Com bonificação',c:''},
+    {l:'Valor Médio',v:comValor.length?'R$ '+(totalValor/comValor.length).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}):'—',d:'Por imóvel',c:''},
+  ].map(k=>`<div class="kpi ${k.c}"><div class="k-label">${k.l}</div><div class="k-value" style="font-size:${k.l==='Valor Total'?'20px':'26px'}">${k.v}</div><div class="k-detail">${k.d}</div></div>`).join('');
+
+  // Charts
+  if(window._indCharts){window._indCharts.forEach(c=>c.destroy());}
+  window._indCharts=[];
+  const teal='#009999',green='#1B7A3D',gold='#C9A227';
+  const palette=[teal,green,gold,'#2B6CB0','#6B46C1','#C05621','#CC3333','#5BADA7','#888'];
+
+  // Uso Imóvel + Situação Residente (donuts)
+  const usoCounts={};filtered.forEach(r=>{usoCounts[r.usoImovel]=(usoCounts[r.usoImovel]||0)+1;});
+  const sitCounts={};filtered.forEach(r=>{if(r.situacao)sitCounts[r.situacao]=(sitCounts[r.situacao]||0)+1;});
+  const showUso=!fUso;const showSit=!fSit;
+
+  let chartsHtml='';
+  if(showUso||showSit){
+    chartsHtml+=`<div class="charts-row" style="grid-template-columns:${showUso&&showSit?'1fr 1fr':'1fr'}">`;
+    if(showUso)chartsHtml+='<div class="chart-box"><canvas id="ind-chart-uso"></canvas></div>';
+    if(showSit)chartsHtml+='<div class="chart-box"><canvas id="ind-chart-sit"></canvas></div>';
+    chartsHtml+='</div>';
+  }
+
+  // Valor por área (barras)
+  const areaValor={};filtered.forEach(r=>{if(r.valor>0){const k=r.fonte||r.area;areaValor[k]=(areaValor[k]||0)+r.valor;}});
+  const areaSorted=Object.entries(areaValor).sort((a,b)=>b[1]-a[1]);
+  if(areaSorted.length>0)chartsHtml+=`<div class="chart-box full" style="margin-bottom:16px"><canvas id="ind-chart-valor"></canvas></div>`;
+
+  document.getElementById('ind-charts').innerHTML=chartsHtml;
+
+  if(showUso){
+    const usoSorted=Object.entries(usoCounts).sort((a,b)=>b[1]-a[1]);
+    window._indCharts.push(new Chart(document.getElementById('ind-chart-uso'),{type:'doughnut',
+      data:{labels:usoSorted.map(u=>u[0]),datasets:[{data:usoSorted.map(u=>u[1]),backgroundColor:palette.slice(0,usoSorted.length),borderWidth:2,borderColor:'#fff'}]},
+      options:{responsive:true,plugins:{title:{display:true,text:'Uso do Imóvel',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}}));
+  }
+  if(showSit){
+    const sitSorted=Object.entries(sitCounts).sort((a,b)=>b[1]-a[1]);
+    window._indCharts.push(new Chart(document.getElementById('ind-chart-sit'),{type:'doughnut',
+      data:{labels:sitSorted.map(s=>s[0]),datasets:[{data:sitSorted.map(s=>s[1]),backgroundColor:palette.slice(0,sitSorted.length),borderWidth:2,borderColor:'#fff'}]},
+      options:{responsive:true,plugins:{title:{display:true,text:'Situação do Residente',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}}));
+  }
+  if(areaSorted.length>0){
+    window._indCharts.push(new Chart(document.getElementById('ind-chart-valor'),{type:'bar',
+      data:{labels:areaSorted.map(a=>a[0]),datasets:[{data:areaSorted.map(a=>a[1]),backgroundColor:teal,borderRadius:4}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{title:{display:true,text:'Valor com Bonificação por Área',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
+        scales:{x:{grid:{display:false},ticks:{callback:v=>'R$ '+(v/1000).toFixed(0)+'k',font:{size:11,family:'Arial'}}},y:{grid:{display:false},ticks:{font:{size:11,family:'Arial'}}}}}}));
+    document.getElementById('ind-chart-valor').parentElement.style.height=Math.max(200,areaSorted.length*35+80)+'px';
+  }
+
+  // Table
+  const pageSize=100;const shown=filtered.slice(0,pageSize);
+  document.getElementById('ind-table-section').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;flex-wrap:wrap;gap:8px">
+      <span style="font-size:12px;color:var(--ink3)">${filtered.length>pageSize?'Mostrando '+pageSize+' de ':''}${fmt(filtered.length)} registros</span>
+      <button class="btn" onclick="exportIndenizacao()">Exportar Excel</button>
+    </div>
+    <div class="dev-records"><table>
+      <thead><tr><th>Área</th><th>Fonte</th><th>Regional</th><th>Uso Imóvel</th><th>Situação</th><th>Tipo Atendimento</th><th style="text-align:right">Valor c/ Bonif.</th><th>Status</th></tr></thead>
+      <tbody>${shown.map(r=>`<tr>
+        <td>${r.area}</td><td>${r.fonte}</td><td>${r.regional}</td>
+        <td>${r.usoImovel}</td><td>${r.situacao}</td><td>${r.tipoAtendimento||'—'}</td>
+        <td class="num">${r.valor>0?'R$ '+r.valor.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+        <td>${r.status||'—'}</td>
+      </tr>`).join('')}
+      ${filtered.length>pageSize?`<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:12px">Exporte para ver todos os ${fmt(filtered.length)} registros.</td></tr>`:''}
+      </tbody></table></div>`;
+  window._indFiltered=filtered;
+}
+
+function exportIndenizacao(){
+  const filtered=window._indFiltered||[];
+  const headers=['Regional','Fonte','Área','Selo','Titular','Ocupação','Uso Imóvel','Situação Residente','Cadastro','Tipo Atendimento','Valor com Bonificação','Status','Status Pagamento'];
+  const rows=filtered.map(r=>[r.regional,r.fonte,r.area,r.selo,r.titular,r.ocupacao,r.usoImovel,r.situacao,r.cadastro,r.tipoAtendimento,r.valor,r.status,r.statusPgto]);
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Indenização');
+  XLSX.writeFile(wb,`indenizacao_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+
+// ============================================================
 // AUTO LOAD
 // ============================================================
 async function fetchXlsx(url){
@@ -1221,8 +1381,17 @@ async function autoLoad(){
     {prog:'ppe',files:['dados.xlsx','dados-ppe.xlsx']},
     {prog:'emergencial',files:['dados-emergencial.xlsx']},
     {prog:'auxilio',files:['dados-auxilio.xlsx']},
-    {prog:'indenizacao',files:['dados-indenizacao.xlsx']},
     {prog:'historico',files:['dados-historico.xlsx']}
+  ];
+
+  // Indenização: múltiplos arquivos consolidados
+  const indFiles=[
+    {file:'ind-cabore.xlsx',regional:'LESTE',area:'Caboré'},
+    {file:'ind-francisco-munhoz.xlsx',regional:'LESTE',area:'Francisco Munhoz Filho'},
+    {file:'ind-jd-aurora.xlsx',regional:'LESTE',area:'Jardim Aurora'},
+    {file:'ind-jd-vitoria.xlsx',regional:'LESTE',area:'Jd. Vitória'},
+    {file:'ind-pantanal.xlsx',regional:'LESTE',area:'Pantanal'},
+    {file:'ind-pq-flores.xlsx',regional:'LESTE',area:'Parque das Flores'}
   ];
 
   const loadProg=async(p)=>{
@@ -1240,7 +1409,29 @@ async function autoLoad(){
     if(statusEl){statusEl.className='prog-status off';statusEl.textContent='Em breve';}
   };
 
+  // Carrega PPE e Emergencial
   await Promise.all(progs.map(p=>loadProg(p)));
+
+  // Carrega Indenização (múltiplos arquivos)
+  const statusInd=document.getElementById('status-indenizacao');
+  let allIndRecords=[];
+  let indLoaded=0;
+  for(const ind of indFiles){
+    try{
+      if(statusInd){statusInd.className='prog-status on';statusInd.textContent='Carregando...';}
+      const wb=await fetchXlsx(ind.file+'?v='+Date.now());
+      const records=parseIndenizacao(wb,ind.regional,ind.area);
+      allIndRecords=allIndRecords.concat(records);
+      indLoaded++;
+    }catch(e){}
+  }
+  if(indLoaded>0){
+    S.indenizacao={records:allIndRecords,loaded:true};
+    if(statusInd){statusInd.textContent='Ativo';}
+  } else {
+    if(statusInd){statusInd.className='prog-status off';statusInd.textContent='Em breve';}
+  }
+
   selectProg('ppe');
 }
 autoLoad();
