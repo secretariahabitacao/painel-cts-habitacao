@@ -1206,96 +1206,38 @@ document.getElementById('file-input').onchange=e=>{
 };
 
 // ============================================================
-// AUTO LOAD — OneDrive (tempo real) → GitHub (backup)
+// AUTO LOAD
 // ============================================================
-
-// Converte link de compartilhamento OneDrive pra URLs de download (tenta 3 formatos)
-function onedriveUrls(shareUrl){
-  // Formato 1: Microsoft Graph API
-  const encoded=btoa(shareUrl).replace(/\//g,'_').replace(/\+/g,'-').replace(/=+$/,'');
-  const graphUrl='https://api.onedrive.com/v1.0/shares/u!'+encoded+'/root/content';
-  
-  // Formato 2: SharePoint download direto
-  const m=shareUrl.match(/\/personal\/([^/]+)\/([\w-]+)/);
-  const spUrl=m?'https://cloudprodamazhotmail-my.sharepoint.com/personal/'+m[1]+'/_layouts/15/download.aspx?share='+m[2]:'';
-  
-  // Formato 3: Adicionar download=1 ao link original
-  const dlUrl=shareUrl+(shareUrl.includes('?')?'&':'?')+'download=1';
-  
-  return [graphUrl, spUrl, dlUrl].filter(Boolean);
-}
-
-// Links do OneDrive (compartilhados com download habilitado)
-const ONEDRIVE_SOURCES={
-  ppe:'https://cloudprodamazhotmail-my.sharepoint.com/:x:/g/personal/thamyressoares_prefeitura_sp_gov_br/IQBpHj1slg43SKppTA4fv9VlASKletlXH5m-KJpm50RbgH0?e=YUHIdn',
-  emergencial:'https://cloudprodamazhotmail-my.sharepoint.com/:x:/g/personal/thamyressoares_prefeitura_sp_gov_br/IQD-E_cVoXVySpbeYVaSNhPEAVbZFvNjKL7nBFjeD4PtEXE'
-};
-
 async function fetchXlsx(url){
   const r=await fetch(url);
   if(!r.ok)throw new Error('HTTP '+r.status);
-  const ct=r.headers.get('content-type')||'';
   const buf=await r.arrayBuffer();
-  if(buf.byteLength<500)throw new Error('Arquivo muito pequeno ('+buf.byteLength+' bytes)');
+  if(buf.byteLength<500)throw new Error('Arquivo muito pequeno');
   return XLSX.read(new Uint8Array(buf),{type:'array',cellDates:true});
 }
 
 async function autoLoad(){
   const progs=[
-    {prog:'ppe',githubFiles:['dados.xlsx','dados-ppe.xlsx']},
-    {prog:'emergencial',githubFiles:['dados-emergencial.xlsx']},
-    {prog:'auxilio',githubFiles:['dados-auxilio.xlsx']},
-    {prog:'indenizacao',githubFiles:['dados-indenizacao.xlsx']},
-    {prog:'historico',githubFiles:['dados-historico.xlsx']}
+    {prog:'ppe',files:['dados.xlsx','dados-ppe.xlsx']},
+    {prog:'emergencial',files:['dados-emergencial.xlsx']},
+    {prog:'auxilio',files:['dados-auxilio.xlsx']},
+    {prog:'indenizacao',files:['dados-indenizacao.xlsx']},
+    {prog:'historico',files:['dados-historico.xlsx']}
   ];
 
   const loadProg=async(p)=>{
     const statusEl=document.getElementById('status-'+p.prog);
-    let wb=null;
-
-    // 1. Tenta OneDrive (3 formatos diferentes)
-    const odShare=ONEDRIVE_SOURCES[p.prog];
-    if(odShare){
-      const urls=onedriveUrls(odShare);
-      for(let i=0;i<urls.length;i++){
-        try{
-          if(statusEl){statusEl.className='prog-status on';statusEl.textContent='Carregando...';}
-          console.log(p.prog+': tentando formato '+(i+1)+'/'+urls.length);
-          wb=await fetchXlsx(urls[i]);
-          console.log(p.prog+': OneDrive OK (formato '+(i+1)+')');
-          if(statusEl){statusEl.textContent='Ativo (OneDrive)';}
-          break;
-        }catch(e){
-          console.warn(p.prog+': formato '+(i+1)+' falhou:',e.message);
-          wb=null;
-        }
-      }
+    for(const name of p.files){
+      try{
+        if(statusEl){statusEl.className='prog-status on';statusEl.textContent='Carregando...';}
+        const wb=await fetchXlsx(name+'?v='+Date.now());
+        if(p.prog==='ppe')parsePPE(wb);
+        if(p.prog==='emergencial')parseEmergencial(wb);
+        if(statusEl){statusEl.textContent='Ativo';}
+        return;
+      }catch(e){}
     }
-
-    // 2. Fallback: GitHub Pages
-    if(!wb){
-      for(const name of p.githubFiles){
-        try{
-          if(statusEl){statusEl.className='prog-status on';statusEl.textContent='Carregando...';}
-          wb=await fetchXlsx(name+'?v='+Date.now());
-          if(statusEl){statusEl.textContent='Ativo';}
-          break;
-        }catch(e){wb=null;}
-      }
-    }
-
-    if(!wb){
-      if(statusEl){statusEl.className='prog-status off';statusEl.textContent='Em breve';}
-      return;
-    }
-
-    try{
-      if(p.prog==='ppe')parsePPE(wb);
-      if(p.prog==='emergencial')parseEmergencial(wb);
-    }catch(err){
-      console.error(p.prog+': erro ao parsear',err);
-      if(statusEl){statusEl.className='prog-status off';statusEl.textContent='Erro';}
-    }
+    if(statusEl){statusEl.className='prog-status off';statusEl.textContent='Em breve';}
   };
 
   await Promise.all(progs.map(p=>loadProg(p)));
