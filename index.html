@@ -1384,7 +1384,7 @@ async function autoLoad(){
     {prog:'historico',files:['dados-historico.xlsx']}
   ];
 
-  // Indenização: descobre arquivos pelo manifesto (gerado pelo sincronizador)
+  // Indenização: manifesto OU busca direta no repositório, em paralelo
 
   const loadProg=async(p)=>{
     const statusEl=document.getElementById('status-'+p.prog);
@@ -1403,23 +1403,47 @@ async function autoLoad(){
 
   await Promise.all(progs.map(p=>loadProg(p)));
 
-  // Carrega Indenização pelo manifesto
+  // Carrega Indenização
   const statusInd=document.getElementById('status-indenizacao');
   let allIndRecords=[];
+  let indArquivos=[];
   try{
     if(statusInd){statusInd.className='prog-status on';statusInd.textContent='Carregando...';}
+    // Tenta manifesto primeiro
     const mResp=await fetch('ind-manifesto.json?v='+Date.now());
     if(mResp.ok){
       const manifesto=await mResp.json();
-      for(const ind of manifesto.arquivos){
-        try{
-          const wb=await fetchXlsx(ind.arquivo+'?v='+Date.now());
-          const records=parseIndenizacao(wb,ind.regional,ind.area);
-          allIndRecords=allIndRecords.concat(records);
-        }catch(e){}
-      }
+      indArquivos=manifesto.arquivos;
     }
   }catch(e){}
+
+  // Se manifesto falhou, busca arquivos ind-*.xlsx diretamente pela API do GitHub
+  if(indArquivos.length===0){
+    try{
+      const apiResp=await fetch('https://api.github.com/repos/secretariahabitacao/painel-cts-habitacao/contents/');
+      if(apiResp.ok){
+        const files=await apiResp.json();
+        files.forEach(f=>{
+          if(f.name.startsWith('ind-')&&f.name.endsWith('.xlsx')){
+            const nome=f.name.replace('ind-','').replace('.xlsx','').replace(/-/g,' ');
+            indArquivos.push({arquivo:f.name,regional:'',area:nome});
+          }
+        });
+      }
+    }catch(e){}
+  }
+
+  // Carrega TODOS em paralelo (muito mais rápido)
+  if(indArquivos.length>0){
+    const resultados=await Promise.all(indArquivos.map(async(ind)=>{
+      try{
+        const wb=await fetchXlsx(ind.arquivo+'?v='+Date.now());
+        return parseIndenizacao(wb,ind.regional,ind.area);
+      }catch(e){return [];}
+    }));
+    resultados.forEach(r=>allIndRecords=allIndRecords.concat(r));
+  }
+
   if(allIndRecords.length>0){
     S.indenizacao={records:allIndRecords,loaded:true};
     if(statusInd){statusInd.textContent='Ativo';}
