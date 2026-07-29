@@ -1,6 +1,46 @@
 {
-    "atualizado":  "29/07/2026 16:40",
+    "atualizado":  "29/07/2026 16:59",
     "arquivos":  [
+                     {
+                         "arquivo":  "ind-cai-cai.xlsx",
+                         "regional":  "SUL",
+                         "area":  "Cai Cai"
+                     },
+                     {
+                         "arquivo":  "ind-camarazal.xlsx",
+                         "regional":  "SUL",
+                         "area":  "Camarazal"
+                     },
+                     {
+                         "arquivo":  "ind-cei-edith-mason.xlsx",
+                         "regional":  "SUL",
+                         "area":  "CEI Edith Mason"
+                     },
+                     {
+                         "arquivo":  "ind-jd-panorama.xlsx",
+                         "regional":  "SUL",
+                         "area":  "Jd. Panorama"
+                     },
+                     {
+                         "arquivo":  "ind-morro-do-s2.xlsx",
+                         "regional":  "SUL",
+                         "area":  "Morro do S2"
+                     },
+                     {
+                         "arquivo":  "ind-paraisópolis---antonico.xlsx",
+                         "regional":  "SUL",
+                         "area":  "Paraisópolis - Antonico"
+                     },
+                     {
+                         "arquivo":  "ind-paraisópolis---colombo.xlsx",
+                         "regional":  "SUL",
+                         "area":  "Paraisópolis - Colombo"
+                     },
+                     {
+                         "arquivo":  "ind-paraisópolis---pq-sanfona.xlsx",
+                         "regional":  "SUL",
+                         "area":  "Paraisópolis - Pq Sanfona"
+                     },
                      {
                          "arquivo":  "ind-lidiane.xlsx",
                          "regional":  "CENTRO",
