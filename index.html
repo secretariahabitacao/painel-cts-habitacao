@@ -1384,15 +1384,7 @@ async function autoLoad(){
     {prog:'historico',files:['dados-historico.xlsx']}
   ];
 
-  // Indenização: múltiplos arquivos consolidados
-  const indFiles=[
-    {file:'ind-cabore.xlsx',regional:'LESTE',area:'Caboré'},
-    {file:'ind-francisco-munhoz.xlsx',regional:'LESTE',area:'Francisco Munhoz Filho'},
-    {file:'ind-jd-aurora.xlsx',regional:'LESTE',area:'Jardim Aurora'},
-    {file:'ind-jd-vitoria.xlsx',regional:'LESTE',area:'Jd. Vitória'},
-    {file:'ind-pantanal.xlsx',regional:'LESTE',area:'Pantanal'},
-    {file:'ind-pq-flores.xlsx',regional:'LESTE',area:'Parque das Flores'}
-  ];
+  // Indenização: descobre arquivos pelo manifesto (gerado pelo sincronizador)
 
   const loadProg=async(p)=>{
     const statusEl=document.getElementById('status-'+p.prog);
@@ -1409,23 +1401,26 @@ async function autoLoad(){
     if(statusEl){statusEl.className='prog-status off';statusEl.textContent='Em breve';}
   };
 
-  // Carrega PPE e Emergencial
   await Promise.all(progs.map(p=>loadProg(p)));
 
-  // Carrega Indenização (múltiplos arquivos)
+  // Carrega Indenização pelo manifesto
   const statusInd=document.getElementById('status-indenizacao');
   let allIndRecords=[];
-  let indLoaded=0;
-  for(const ind of indFiles){
-    try{
-      if(statusInd){statusInd.className='prog-status on';statusInd.textContent='Carregando...';}
-      const wb=await fetchXlsx(ind.file+'?v='+Date.now());
-      const records=parseIndenizacao(wb,ind.regional,ind.area);
-      allIndRecords=allIndRecords.concat(records);
-      indLoaded++;
-    }catch(e){}
-  }
-  if(indLoaded>0){
+  try{
+    if(statusInd){statusInd.className='prog-status on';statusInd.textContent='Carregando...';}
+    const mResp=await fetch('ind-manifesto.json?v='+Date.now());
+    if(mResp.ok){
+      const manifesto=await mResp.json();
+      for(const ind of manifesto.arquivos){
+        try{
+          const wb=await fetchXlsx(ind.arquivo+'?v='+Date.now());
+          const records=parseIndenizacao(wb,ind.regional,ind.area);
+          allIndRecords=allIndRecords.concat(records);
+        }catch(e){}
+      }
+    }
+  }catch(e){}
+  if(allIndRecords.length>0){
     S.indenizacao={records:allIndRecords,loaded:true};
     if(statusInd){statusInd.textContent='Ativo';}
   } else {
