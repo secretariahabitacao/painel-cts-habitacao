@@ -152,6 +152,10 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 .f-bar{height:100%;border-radius:3px}
 .f-row .f-ct{font-size:13px;font-weight:700;text-align:right}
 
+/* DESCRICAO PROGRAMA */
+.prog-desc{background:var(--surface);border-left:4px solid var(--teal);border-radius:var(--radius);padding:16px 20px;margin-bottom:24px;font-size:13px;color:var(--ink2);line-height:1.6}
+.prog-desc strong{color:var(--ink);font-weight:600}
+
 /* DEVOLUTIVAS */
 .dev-section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);margin-top:20px}
 .dev-section h3{font-size:14px;font-weight:700;margin-bottom:16px}
@@ -261,6 +265,9 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
         <select id="sel-emp"><option value="">Panorama geral</option></select>
       </div>
     </div>
+    <div class="prog-desc">
+      <strong>Unidade Habitacional</strong> — Acompanhamento da evolução da demanda e dos atendimentos habitacionais definitivos realizados por meio da oferta de unidades habitacionais, abrangendo os empreendimentos viabilizados pelo Programa Pode Entrar (PPE), pela Parceria Público-Privada Habitacional (PPP), pela Produção Própria da SEHAB/COHAB-SP e pela Operação Urbana Consorciada Água Espraiada (OUCAE).
+    </div>
     <div class="view-label" id="view-label"></div>
     <div id="ppe-kpis" class="kpi-row"></div>
     <div id="kpi-detail-panel" class="kpi-detail-panel"></div>
@@ -278,7 +285,7 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
   <div class="prog-content" id="prog-auxilio">
     <div class="placeholder">
       <h2>Auxílio Aluguel</h2>
-      <p>Carregue a planilha de Auxílio Aluguel para visualizar os dados deste programa.</p>
+      <p>Acompanhamento das famílias com benefício ativo no Auxílio Aluguel, contemplando benefícios temporários ou continuados, com ou sem compromisso de atendimento habitacional definitivo. Em breve.</p>
       <button class="ph-btn" onclick="uploadFor('auxilio')">Carregar planilha</button>
       <input type="file" id="file-auxilio" accept=".xlsx,.xls" style="display:none">
     </div>
@@ -292,6 +299,9 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
       <div class="sel-group"><label>Evento</label><select id="emg-evento"><option value="">Todos</option></select></div>
       <div class="sel-group"><label>Regional</label><select id="emg-reg"><option value="">Todas</option></select></div>
       <div class="sel-group search-group"><label>Nº SEI / Processo</label><input type="text" id="emg-sei" placeholder="Ex: 6054.2023/..."></div>
+    </div>
+    <div class="prog-desc">
+      <strong>Emergencial</strong> — Registro, acompanhamento e controle dos atendimentos habitacionais provisórios destinados às famílias atingidas por desastres ou removidas preventivamente de áreas ou imóveis em situação de risco, incluindo desabamentos, inundações, alagamentos, incêndios, acidentes geológicos, contaminações químicas e outras ocorrências.
     </div>
     <div class="view-label" id="emg-label"></div>
     <div id="emg-kpis" class="kpi-row"></div>
@@ -308,6 +318,9 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
       <div class="sel-group"><label>Situação Residente</label><select id="ind-sit"><option value="">Todas</option></select></div>
       <div class="sel-group search-group"><label>Buscar</label><input type="text" id="ind-busca" placeholder="Nome, selo..."></div>
     </div>
+    <div class="prog-desc">
+      <strong>Indenização</strong> — Consolidação e acompanhamento dos processos administrativos de avaliação e pagamento de indenizações referentes a construções ou benfeitorias atingidas por intervenções habitacionais, obras públicas ou ações destinadas à eliminação de riscos, no âmbito da Secretaria Municipal de Habitação.
+    </div>
     <div class="view-label" id="ind-label"></div>
     <div id="ind-kpis" class="kpi-row"></div>
     <div id="ind-charts"></div>
@@ -318,7 +331,7 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
   <div class="prog-content" id="prog-historico">
     <div class="placeholder">
       <h2>Histórico de Atendimentos</h2>
-      <p>Compilado anual de atendimentos da Coordenadoria: unidades habitacionais entregues, indenizações e demais modalidades. Carregue a planilha para visualizar.</p>
+      <p>Consolidação dos atendimentos habitacionais definitivos já realizados pela Secretaria Municipal de Habitação, independentemente do programa, da modalidade de atendimento ou da origem da demanda. Em breve.</p>
       <button class="ph-btn" onclick="uploadFor('historico')">Carregar planilha</button>
       <input type="file" id="file-historico" accept=".xlsx,.xls" style="display:none">
     </div>
@@ -810,7 +823,7 @@ function renderDevolutivas(emp){
     <h3>Demanda / Devolutiva — ${emp.nome}</h3>
     <div class="dev-controls">
       <select id="dev-filter">
-        ${devTypes.map(d=>`<option value="${d}">${d}${d!=='Todos'?' ('+counts[d]+')':' ('+total+')'}</option>`).join('')}
+        ${devTypes.map(d=>`<option value="${d}">${d}</option>`).join('')}
       </select>
       <button class="btn" id="btn-dev-export">Exportar Excel</button>
     </div>
@@ -1008,9 +1021,9 @@ function renderEmergencial(){
   const evSet=[...new Set(recs.map(r=>r.evento).filter(Boolean))].sort();
   const regSet=[...new Set(recs.map(r=>r.regional).filter(Boolean))].sort();
   const evEl=document.getElementById('emg-evento');
-  evEl.innerHTML='<option value="">Todos ('+evSet.length+')</option>'+evSet.map(e=>`<option value="${e}">${e}</option>`).join('');
+  evEl.innerHTML='<option value="">Todos</option>'+evSet.map(e=>`<option value="${e}">${e}</option>`).join('');
   const regEl=document.getElementById('emg-reg');
-  regEl.innerHTML='<option value="">Todas ('+regSet.length+')</option>'+regSet.map(r=>`<option value="${r}">${r}</option>`).join('');
+  regEl.innerHTML='<option value="">Todas</option>'+regSet.map(r=>`<option value="${r}">${r}</option>`).join('');
   // Set date range defaults — usa dataAtendimento como referência
   const allDates=[...recs.map(r=>r.dataAtendimento),...recs.map(r=>r.dataOcorrencia)].filter(d=>d instanceof Date).sort((a,b)=>a-b);
   const _p=n=>String(n).padStart(2,'0');
@@ -1246,10 +1259,10 @@ function renderIndenizacao(){
   const usoSet=[...new Set(recs.map(r=>r.usoImovel).filter(Boolean))].sort();
   const sitSet=[...new Set(recs.map(r=>r.situacao).filter(Boolean))].sort();
 
-  document.getElementById('ind-reg').innerHTML='<option value="">Todas ('+regSet.length+')</option>'+regSet.map(r=>`<option value="${r}">${r}</option>`).join('');
-  document.getElementById('ind-area').innerHTML='<option value="">Todas ('+areaSet.length+')</option>'+areaSet.map(a=>`<option value="${a}">${a}</option>`).join('');
-  document.getElementById('ind-uso').innerHTML='<option value="">Todos ('+usoSet.length+')</option>'+usoSet.map(u=>`<option value="${u}">${u}</option>`).join('');
-  document.getElementById('ind-sit').innerHTML='<option value="">Todas ('+sitSet.length+')</option>'+sitSet.map(s=>`<option value="${s}">${s}</option>`).join('');
+  document.getElementById('ind-reg').innerHTML='<option value="">Todas</option>'+regSet.map(r=>`<option value="${r}">${r}</option>`).join('');
+  document.getElementById('ind-area').innerHTML='<option value="">Todas</option>'+areaSet.map(a=>`<option value="${a}">${a}</option>`).join('');
+  document.getElementById('ind-uso').innerHTML='<option value="">Todos</option>'+usoSet.map(u=>`<option value="${u}">${u}</option>`).join('');
+  document.getElementById('ind-sit').innerHTML='<option value="">Todas</option>'+sitSet.map(s=>`<option value="${s}">${s}</option>`).join('');
 
   ['ind-reg','ind-area','ind-uso','ind-sit'].forEach(id=>{document.getElementById(id).onchange=filterIndenizacao;});
   document.getElementById('ind-busca').oninput=filterIndenizacao;
