@@ -1,0 +1,90 @@
+{
+    "atualizado":  "29/07/2026 16:35",
+    "arquivos":  [
+                     {
+                         "arquivo":  "ind-lidiane.xlsx",
+                         "regional":  "CENTRO",
+                         "area":  "Lidiane"
+                     },
+                     {
+                         "arquivo":  "ind-moinho.xlsx",
+                         "regional":  "CENTRO",
+                         "area":  "Moinho"
+                     },
+                     {
+                         "arquivo":  "ind-caboré.xlsx",
+                         "regional":  "LESTE",
+                         "area":  "Caboré"
+                     },
+                     {
+                         "arquivo":  "ind-francisco-munhoz-filho.xlsx",
+                         "regional":  "LESTE",
+                         "area":  "Francisco Munhoz Filho"
+                     },
+                     {
+                         "arquivo":  "ind-jardim-aurora.xlsx",
+                         "regional":  "LESTE",
+                         "area":  "Jardim Aurora"
+                     },
+                     {
+                         "arquivo":  "ind-jd-vitória.xlsx",
+                         "regional":  "LESTE",
+                         "area":  "Jd. Vitória"
+                     },
+                     {
+                         "arquivo":  "ind-pantanal.xlsx",
+                         "regional":  "LESTE",
+                         "area":  "Pantanal"
+                     },
+                     {
+                         "arquivo":  "ind-parque-das-flores.xlsx",
+                         "regional":  "LESTE",
+                         "area":  "Parque das Flores"
+                     },
+                     {
+                         "arquivo":  "ind-alfredo-ávila.xlsx",
+                         "regional":  "NORTE",
+                         "area":  "Alfredo Ávila"
+                     },
+                     {
+                         "arquivo":  "ind-córrego-da-mina.xlsx",
+                         "regional":  "NORTE",
+                         "area":  "Córrego da Mina"
+                     },
+                     {
+                         "arquivo":  "ind-esperança.xlsx",
+                         "regional":  "NORTE",
+                         "area":  "Esperança"
+                     },
+                     {
+                         "arquivo":  "ind-jd-da-paz.xlsx",
+                         "regional":  "NORTE",
+                         "area":  "Jd da Paz"
+                     },
+                     {
+                         "arquivo":  "ind-jd-monte-alegre.xlsx",
+                         "regional":  "NORTE",
+                         "area":  "Jd Monte Alegre"
+                     },
+                     {
+                         "arquivo":  "ind-violão-iii.xlsx",
+                         "regional":  "NORTE",
+                         "area":  "Violão III"
+                     },
+                     {
+                         "arquivo":  "ind-árvore-de-são-tomás.xlsx",
+                         "regional":  "NORTE",
+                         "area":  "Árvore de São Tomás"
+                     },
+                     {
+                         "arquivo":  "ind-ceu-imperador.xlsx",
+                         "regional":  "SUDESTE",
+                         "area":  "CEU IMPERADOR"
+                     },
+                     {
+                         "arquivo":  "ind-passagem-iii.xlsx",
+                         "regional":  "SUDESTE",
+                         "area":  "PASSAGEM III"
+                     }
+                 ]
+}
