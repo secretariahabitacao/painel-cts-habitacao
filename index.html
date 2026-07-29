@@ -251,6 +251,9 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 
   <!-- PPE CONTENT -->
   <div class="prog-content" id="prog-ppe">
+    <div class="prog-desc">
+      <strong>Unidade Habitacional</strong> — Acompanhamento da evolução da demanda e dos atendimentos habitacionais definitivos realizados por meio da oferta de unidades habitacionais, abrangendo os empreendimentos viabilizados pelo Programa Pode Entrar (PPE), pela Parceria Público-Privada Habitacional (PPP), pela Produção Própria da SEHAB/COHAB-SP e pela Operação Urbana Consorciada Água Espraiada (OUCAE).
+    </div>
     <div class="selectors">
       <div class="sel-group">
         <label>Programa</label>
@@ -264,9 +267,6 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
         <label>Empreendimento</label>
         <select id="sel-emp"><option value="">Panorama geral</option></select>
       </div>
-    </div>
-    <div class="prog-desc">
-      <strong>Unidade Habitacional</strong> — Acompanhamento da evolução da demanda e dos atendimentos habitacionais definitivos realizados por meio da oferta de unidades habitacionais, abrangendo os empreendimentos viabilizados pelo Programa Pode Entrar (PPE), pela Parceria Público-Privada Habitacional (PPP), pela Produção Própria da SEHAB/COHAB-SP e pela Operação Urbana Consorciada Água Espraiada (OUCAE).
     </div>
     <div class="view-label" id="view-label"></div>
     <div id="ppe-kpis" class="kpi-row"></div>
@@ -303,6 +303,13 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
     <div class="prog-desc">
       <strong>Emergencial</strong> — Registro, acompanhamento e controle dos atendimentos habitacionais provisórios destinados às famílias atingidas por desastres ou removidas preventivamente de áreas ou imóveis em situação de risco, incluindo desabamentos, inundações, alagamentos, incêndios, acidentes geológicos, contaminações químicas e outras ocorrências.
     </div>
+    <div class="selectors" id="emg-filters">
+      <div class="sel-group"><label>Atendimento — De</label><input type="date" id="emg-dt-ini"></div>
+      <div class="sel-group"><label>Até</label><input type="date" id="emg-dt-fim"></div>
+      <div class="sel-group"><label>Evento</label><select id="emg-evento"><option value="">Todos</option></select></div>
+      <div class="sel-group"><label>Regional</label><select id="emg-reg"><option value="">Todas</option></select></div>
+      <div class="sel-group search-group"><label>Buscar (SEI, área, nome)</label><input type="text" id="emg-sei" placeholder="Nº processo, área ou beneficiário..."></div>
+    </div>
     <div class="view-label" id="emg-label"></div>
     <div id="emg-kpis" class="kpi-row"></div>
     <div id="emg-charts"></div>
@@ -311,15 +318,15 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 
   <!-- INDENIZAÇÃO CONTENT -->
   <div class="prog-content" id="prog-indenizacao">
+    <div class="prog-desc">
+      <strong>Indenização</strong> — Consolidação e acompanhamento dos processos administrativos de avaliação e pagamento de indenizações referentes a construções ou benfeitorias atingidas por intervenções habitacionais, obras públicas ou ações destinadas à eliminação de riscos, no âmbito da Secretaria Municipal de Habitação.
+    </div>
     <div class="selectors" id="ind-filters">
       <div class="sel-group"><label>Regional</label><select id="ind-reg"><option value="">Todas</option></select></div>
       <div class="sel-group"><label>Área</label><select id="ind-area"><option value="">Todas</option></select></div>
       <div class="sel-group"><label>Uso Imóvel</label><select id="ind-uso"><option value="">Todos</option></select></div>
       <div class="sel-group"><label>Situação Residente</label><select id="ind-sit"><option value="">Todas</option></select></div>
       <div class="sel-group search-group"><label>Buscar</label><input type="text" id="ind-busca" placeholder="Nome, selo..."></div>
-    </div>
-    <div class="prog-desc">
-      <strong>Indenização</strong> — Consolidação e acompanhamento dos processos administrativos de avaliação e pagamento de indenizações referentes a construções ou benfeitorias atingidas por intervenções habitacionais, obras públicas ou ações destinadas à eliminação de riscos, no âmbito da Secretaria Municipal de Habitação.
     </div>
     <div class="view-label" id="ind-label"></div>
     <div id="ind-kpis" class="kpi-row"></div>
