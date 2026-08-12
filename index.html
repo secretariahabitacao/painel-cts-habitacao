@@ -1554,8 +1554,14 @@ async function autoLoad(){
     if(statusInd){statusInd.className='prog-status off';statusInd.textContent='Em breve';}
   }
 
+  // Carrega Demanda Fechada
+  try{
+    const wbDem=await fetchXlsx('dados-demanda.xlsx?v='+Date.now());
+    parseDemanda(wbDem);
+  }catch(e){}
+
   renderMainDashboard();
-  selectProg('ppe');
+  // Não seleciona nenhum programa automaticamente - usuário clica
 }
 autoLoad();
 </script>
