@@ -21,87 +21,125 @@
 </div>
 </header>
 <main class="fade-in">
-<script>document.write(buildNav("index"));</script>
+<script>document.write(buildNav("ppe"));</script>
 
+<div class="prog-desc">
+  <strong>Unidade Habitacional</strong> — Acompanhamento da evolução da demanda e dos atendimentos habitacionais definitivos: Pode Entrar (PPE), PPP, Produção Própria e OUCAE.
+</div>
 <div id="loading" style="text-align:center;padding:60px;color:var(--ink3)">Carregando dados...</div>
-<div id="dashboard" class="hidden">
-  <div id="demanda-section"></div>
-  <div id="uh-section" style="margin-top:32px"></div>
-  <div id="charts-wrap" style="margin-top:24px"></div>
+<div id="content" class="hidden">
+  <div class="selectors">
+    <div class="sel-group"><label>Programa</label><select id="sel-prog"><option value="">Todos</option></select></div>
+    <div class="sel-group"><label>Regional (DTS)</label><select id="sel-dts"><option value="">Todas</option></select></div>
+    <div class="sel-group"><label>Empreendimento</label><select id="sel-emp"><option value="">Panorama geral</option></select></div>
+  </div>
+  <div class="view-label" id="view-label"></div>
+  <div id="ppe-kpis" class="kpi-row"></div>
+  <div id="kpi-detail" class="kpi-detail-panel"></div>
+  <div id="ppe-detail"></div>
+  <div id="ppe-charts"><div class="charts-row"><div class="chart-box"><canvas id="chart-status"></canvas></div><div class="chart-box"><canvas id="chart-dts"></canvas></div></div></div>
+  <div id="ppe-funil"></div>
 </div>
 
 <script>
+let DATA={emps:[],quantTotals:{},aquiMap:{}};
+let VIEW={programa:'',dts:'',emp:''};
+
 async function init(){
-  let dem=[],emps=[];
-
-  try{const wb=await fetchXlsx('dados-demanda.xlsx?v='+V);dem=parseDemanda(wb);}catch(e){}
-  try{const wb=await fetchXlsx('dados.xlsx?v='+V);const r=parsePPE(wb);emps=r.emps;}catch(e){}
-
+  try{const wb=await fetchXlsx('dados.xlsx?v='+V);DATA=parsePPE(wb);}catch(e){try{const wb=await fetchXlsx('dados-ppe.xlsx?v='+V);DATA=parsePPE(wb);}catch(e2){}}
   document.getElementById('loading').classList.add('hidden');
-  document.getElementById('dashboard').classList.remove('hidden');
+  document.getElementById('content').classList.remove('hidden');
+  if(!DATA.emps.length){document.getElementById('content').innerHTML='<div class="placeholder"><h2>Sem dados</h2><p>Planilha PPE não encontrada.</p></div>';return;}
+  setupSelectors();update();
+}
 
-  const td=dem.length;
-  if(td===0&&emps.length===0){document.getElementById('dashboard').innerHTML='<div class="placeholder"><h2>Sem dados</h2><p>Nenhum arquivo de dados encontrado no repositório.</p></div>';return;}
+function setupSelectors(){
+  const progSet=[...new Set(DATA.emps.map(e=>e.programa).filter(Boolean))].sort();
+  const pe=document.getElementById('sel-prog');pe.innerHTML='<option value="">Todos</option>'+progSet.map(p=>`<option value="${p}">${p}</option>`).join('');
+  pe.onchange=e=>{VIEW.programa=e.target.value;VIEW.dts='';VIEW.emp='';update();};
+  document.getElementById('sel-dts').onchange=e=>{VIEW.dts=e.target.value;VIEW.emp='';update();};
+  document.getElementById('sel-emp').onchange=e=>{VIEW.emp=e.target.value;update();};
+}
 
-  const mc=dem.filter(r=>r.mulher).length,pc=dem.filter(r=>r.pcd).length;
-  const ic=dem.filter(r=>r.idoso).length,fc=dem.filter(r=>r.infancia).length;
-  const i5=dem.filter(r=>r.integ5).length;
+function update(){
+  let emps=DATA.emps;
+  if(VIEW.programa)emps=emps.filter(e=>e.programa===VIEW.programa);
+  const dtsSet=[...new Set(emps.map(e=>e.dts).filter(Boolean))].sort();
+  const de=document.getElementById('sel-dts');de.innerHTML='<option value="">Todas</option>'+dtsSet.map(d=>`<option value="${d}">${d}</option>`).join('');de.value=VIEW.dts;
+  if(VIEW.dts)emps=emps.filter(e=>e.dts===VIEW.dts);
+  const empList=[...emps].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  const ee=document.getElementById('sel-emp');ee.innerHTML='<option value="">Panorama geral</option>'+empList.map(e=>`<option value="${e.nome}">${e.nome}</option>`).join('');ee.value=VIEW.emp;
 
-  const card=(label,value,pctVal,color,icon,href)=>
-    `<a class="dash-card ${color}" href="${href}">
-      <div class="dc-icon">${icon}</div>
-      <div class="dc-body">
-        <div class="dc-value">${value}</div>
-        <div class="dc-pct">${pctVal}</div>
-        <div class="dc-label">${label}</div>
-      </div>
-    </a>`;
+  if(VIEW.emp){renderDetail(emps.find(e=>e.nome===VIEW.emp));}
+  else{renderOverview(emps);}
+}
 
-  let html='';
-  if(td>0){
-    html+=`<div class="dash-section-title">Demanda Fechada</div>
-    <div class="dash-subtitle">Famílias aguardando atendimento habitacional definitivo</div>
-    <div class="dash-grid">
-      ${card('Total de Cadastros',fmt(td),'100%','teal','📋','demanda.html')}
-      ${card('Mulher Responsável',fmt(mc),pct(mc/td,1),'green','👩','demanda.html?perfil=mulher')}
-      ${card('Idoso',fmt(ic),pct(ic/td,1),'blue','🧓','demanda.html?perfil=idoso')}
-      ${card('PCD',fmt(pc),pct(pc/td,1),'purple','♿','demanda.html?perfil=pcd')}
-      ${card('1ª Infância',fmt(fc),pct(fc/td,1),'orange','👶','demanda.html?perfil=infancia')}
-      ${card('5+ Integrantes',fmt(i5),pct(i5/td,1),'slate','👪','demanda.html?perfil=integ5')}
-    </div>`;
-    document.getElementById('demanda-section').innerHTML=html;
-  }
+function renderOverview(emps){
+  let label=VIEW.programa||'Unidade Habitacional';
+  if(VIEW.dts)label+=' — Regional '+VIEW.dts;
+  document.getElementById('view-label').innerHTML=`<span class="crumb">UH</span> › ${label} <span style="color:var(--ink3)">${emps.length} empreendimentos</span>`;
+  const totUH=emps.reduce((s,e)=>s+e.uhTotal,0);
+  let tAp=0,tCo=0,tPe=0,tTe=0;emps.forEach(e=>{tAp+=e.aprov||0;tCo+=e.contrato||0;tPe+=e.pend||0;tTe+=e.termo||0;});
+  window._kE=emps;
+  document.getElementById('ppe-kpis').innerHTML=[
+    {l:'Empreendimentos',v:emps.length,d:'',c:'',id:'emps'},{l:'UHs Totais',v:fmt(totUH),d:'',c:'',id:'uhs'},
+    {l:'Contratos',v:fmt(tCo),d:totUH?pct(tCo/totUH,1):'',c:'success',id:'co'},{l:'Aprovados',v:fmt(tAp),d:totUH?pct(tAp/totUH,1):'',c:'success',id:'ap'},
+    {l:'Pendências',v:fmt(tPe),d:'',c:tPe?'alert':'',id:'pe'},{l:'Termos',v:fmt(tTe),d:'',c:'',id:'te'},
+  ].map(k=>`<div class="kpi ${k.c}" onclick="showKD('${k.id}')"><div class="k-label">${k.l}</div><div class="k-value">${k.v}</div><div class="k-detail">${k.d}</div></div>`).join('');
 
-  if(emps.length>0){
-    const tUH=emps.reduce((s,e)=>s+(e.uhTotal||0),0);
-    const tCo=emps.reduce((s,e)=>s+(e.contrato||0),0);
-    const tAp=emps.reduce((s,e)=>s+(e.aprov||0),0);
-    const tPe=emps.reduce((s,e)=>s+(e.pend||0),0);
-    document.getElementById('uh-section').innerHTML=`
-      <div class="dash-section-title">Atendimentos em Andamento</div>
-      <div class="dash-subtitle">Empreendimentos e unidades habitacionais em processo</div>
-      <div class="dash-grid">
-        ${card('Empreendimentos',fmt(emps.length),'Em andamento','teal','🏗','ppe.html')}
-        ${card('UHs Totais',fmt(tUH),'Unidades','blue','🏠','ppe.html')}
-        ${card('Contratos Assinados',fmt(tCo),pct(tCo/tUH,1)+' do total','green','📝','ppe.html')}
-        ${card('Aprovados',fmt(tAp),pct(tAp/tUH,1)+' do total','green','✅','ppe.html')}
-        ${card('Pendências',fmt(tPe),'Requerem atenção','red','⚠','ppe.html')}
-      </div>`;
-  }
+  document.getElementById('kpi-detail').className='kpi-detail-panel';document.getElementById('kpi-detail').innerHTML='';
+  document.getElementById('ppe-detail').innerHTML='';
+  document.getElementById('ppe-charts').style.display='block';
 
-  // Charts
-  if(td>0){
-    document.getElementById('charts-wrap').innerHTML='<div class="charts-row"><div class="chart-box"><canvas id="ch-perfil"></canvas></div><div class="chart-box"><canvas id="ch-reg"></canvas></div></div>';
-    const teal='#009999',green='#10b981',gold='#f59e0b';
-    new Chart(document.getElementById('ch-perfil'),{type:'bar',
-      data:{labels:['Mulher Resp.','Idoso','5+ Integ.','1ª Infância','PCD'],datasets:[{data:[mc,ic,i5,fc,pc],backgroundColor:[teal,green,gold,'#3b82f6','#8b5cf6'],borderRadius:6}]},
-      options:{responsive:true,plugins:{title:{display:true,text:'Perfil Demográfico',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{display:false}},scales:{y:{grid:{display:false}},x:{grid:{display:false}}}}});
-    const rc={};dem.forEach(r=>{if(r.regional)rc[r.regional]=(rc[r.regional]||0)+1;});
-    const rs=Object.entries(rc).sort((a,b)=>b[1]-a[1]);
-    new Chart(document.getElementById('ch-reg'),{type:'doughnut',
-      data:{labels:rs.map(r=>r[0]),datasets:[{data:rs.map(r=>r[1]),backgroundColor:COLORS.palette.slice(0,rs.length),borderWidth:3,borderColor:'#fff'}]},
-      options:{responsive:true,plugins:{title:{display:true,text:'Famílias por Regional',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{position:'bottom',labels:{font:{size:12,family:'Inter'},padding:16,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}});
-  }
+  window._ch=destroyCharts(window._ch);window._ch=[];
+  ['chart-status','chart-dts'].forEach(id=>{const el=document.getElementById(id);if(el)el.parentElement.innerHTML=`<canvas id="${id}"></canvas>`;});
+
+  const {teal,green,gold,red}=COLORS;
+  let fd;if(VIEW.dts||VIEW.programa){fd={termo:0,selec:0,dossie:0,aprov:0,contrato:0,pend:0,reprov:0,desist:0};emps.forEach(e=>{if(e.q)Object.keys(fd).forEach(k=>{fd[k]+=(e.q[k]||0);});});}else fd=DATA.quantTotals;
+  const sd=[{l:'Termo',v:fd.termo||0,c:teal},{l:'Aprovados',v:fd.aprov||0,c:green},{l:'Contrato',v:fd.contrato||0,c:'#2D8B4E'},{l:'Selecionados',v:fd.selec||0,c:'#5BADA7'},{l:'Pendência',v:fd.pend||0,c:gold},{l:'Desistência',v:fd.desist||0,c:'#D48A2E'},{l:'Reprovados',v:fd.reprov||0,c:red},{l:'Dossiê',v:fd.dossie||0,c:'#6FB7C1'}].filter(i=>i.v>0);
+  window._ch.push(new Chart(document.getElementById('chart-status'),{type:'doughnut',data:{labels:sd.map(i=>i.l),datasets:[{data:sd.map(i=>i.v),backgroundColor:sd.map(i=>i.c),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{title:{display:true,text:'Status dos Dossiês',font:{size:14,weight:'bold'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}}));
+
+  const dc={};emps.forEach(e=>{if(e.dts)dc[e.dts]=(dc[e.dts]||0)+e.uhTotal;});const da=Object.entries(dc).sort((a,b)=>b[1]-a[1]);
+  window._ch.push(new Chart(document.getElementById('chart-dts'),{type:'doughnut',data:{labels:da.map(d=>d[0]),datasets:[{data:da.map(d=>d[1]),backgroundColor:COLORS.palette.slice(0,da.length),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{title:{display:true,text:'UHs por Regional',font:{size:14,weight:'bold'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}}));
+
+  const fk=[{k:'termo',l:'Termo de Vinculação',c:teal},{k:'selec',l:'Selecionados',c:'#5BADA7'},{k:'dossie',l:'Dossiê',c:'#6FB7C1'},{k:'aprov',l:'Aprovados',c:green},{k:'contrato',l:'Contrato',c:'#2D8B4E'},{k:'pend',l:'Pendência',c:gold},{k:'reprov',l:'Reprovados',c:red},{k:'desist',l:'Desistência',c:'#D48A2E'}];
+  const mx=Math.max(...fk.map(f=>fd[f.k]||0),1);
+  document.getElementById('ppe-funil').innerHTML=`<div class="funil-section"><h3>Funil de Dossiês</h3>${fk.map(f=>{const v=fd[f.k]||0;return `<div class="f-row"><div class="f-lbl">${f.l}</div><div class="f-bar-w"><div class="f-bar" style="width:${Math.max(2,(v/mx)*100)}%;background:${f.c}"></div></div><div class="f-ct">${fmt(v)}</div></div>`;}).join('')}</div>`;
+}
+
+function renderDetail(emp){
+  if(!emp)return;
+  document.getElementById('ppe-charts').style.display='none';document.getElementById('ppe-funil').innerHTML='';
+  document.getElementById('kpi-detail').className='kpi-detail-panel';document.getElementById('kpi-detail').innerHTML='';document.getElementById('ppe-kpis').innerHTML='';
+  document.getElementById('view-label').innerHTML=`<span class="crumb" style="cursor:pointer" onclick="VIEW.emp='';update()">UH</span> › ${emp.programa||'PPE'} › <strong>${emp.nome}</strong>`;
+  const ov=num(emp.pctObra);const oc=ov>=80?'high':ov>=40?'mid':ov>0?'low':'zero';
+  document.getElementById('ppe-detail').innerHTML=`<div class="detail-panel">
+    <h2>${emp.nome}</h2><div class="dp-sub">${emp.modalidade||''} · ${emp.programa||'PPE'} · DTS ${emp.dts||'—'}</div>
+    <div class="dp-grid">
+      <div class="dp-item"><div class="dp-lbl">UHs Totais</div><div class="dp-val">${fmt(emp.uhTotal)}</div><div class="dp-det">COHAB: ${fmt(emp.uhCohab)} · SEHAB: ${fmt(emp.uhSehab)}</div></div>
+      <div class="dp-item green"><div class="dp-lbl">Contratos</div><div class="dp-val">${fmt(emp.contrato)}</div><div class="dp-det">${emp.uhTotal?pct(emp.contrato/emp.uhTotal,1):''}</div></div>
+      <div class="dp-item green"><div class="dp-lbl">Aprovados</div><div class="dp-val">${fmt(emp.aprov)}</div></div>
+      <div class="dp-item ${emp.pend>0?'red':''}"><div class="dp-lbl">Pendências</div><div class="dp-val">${fmt(emp.pend)}</div></div>
+    </div>
+    <div class="dp-obra"><div class="obra-lbl"><span>Evolução da Obra</span><strong>${pct(emp.pctObra)}</strong></div><div class="dp-obra-bar"><div class="fill ${oc}" style="width:${ov*(ov<=1.5?100:1)}%"></div></div></div>
+    <div class="dp-info">
+      <div><div class="dp-info-item"><strong>Endereço</strong> ${emp.endereco||'—'}</div><div class="dp-info-item"><strong>Construtora</strong> ${emp.construtora||'—'}</div><div class="dp-info-item"><strong>Contatos</strong> ${emp.contatos||'—'}</div></div>
+      <div><div class="dp-info-item"><strong>Escolha</strong> ${fmtDateShort(emp.dataEscolha)}</div><div class="dp-info-item"><strong>Assembleia</strong> ${fmtDateShort(emp.dataAssembleia)}</div><div class="dp-info-item"><strong>CNPJ</strong> ${fmtDateShort(emp.cnpjEmitido)}</div><div class="dp-info-item"><strong>Entrega</strong> ${fmtDateShort(emp.entrega)}</div></div>
+    </div>
+  </div>`;
+}
+
+function showKD(id){
+  const emps=window._kE||[];const panel=document.getElementById('kpi-detail');
+  const cb='<button class="close-btn" onclick="this.parentElement.className=\'kpi-detail-panel\'">✕</button>';
+  const km={emps:e=>e.uhTotal,uhs:e=>e.uhTotal,co:e=>e.contrato,ap:e=>e.aprov,pe:e=>e.pend,te:e=>e.termo};
+  const labels={emps:'Empreendimentos',uhs:'UHs',co:'Contratos',ap:'Aprovados',pe:'Pendências',te:'Termos'};
+  const fn=km[id];if(!fn)return;
+  const rows=emps.map(e=>({nome:e.nome,dts:e.dts,val:fn(e)||0,uhs:e.uhTotal})).filter(r=>r.val>0).sort((a,b)=>b.val-a.val);
+  const total=rows.reduce((s,r)=>s+r.val,0);
+  panel.innerHTML=`${cb}<h3>${labels[id]} — ${fmt(total)}</h3><table><thead><tr><th>Empreendimento</th><th>DTS</th><th style="text-align:right">UHs</th><th style="text-align:right">${labels[id]}</th><th style="text-align:right">%</th></tr></thead>
+  <tbody>${rows.map(r=>`<tr><td>${r.nome}</td><td>${r.dts}</td><td class="num">${fmt(r.uhs)}</td><td class="num">${fmt(r.val)}</td><td class="num">${r.uhs?pct(r.val/r.uhs,1):'—'}</td></tr>`).join('')}</tbody></table>`;
+  panel.className='kpi-detail-panel active';panel.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 init();
 </script>

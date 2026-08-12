@@ -24,84 +24,106 @@
 <script>document.write(buildNav("index"));</script>
 
 <div id="loading" style="text-align:center;padding:60px;color:var(--ink3)">Carregando dados...</div>
-<div id="dashboard" class="hidden">
-  <div id="demanda-section"></div>
-  <div id="uh-section" style="margin-top:32px"></div>
-  <div id="charts-wrap" style="margin-top:24px"></div>
-</div>
+<div id="content" class="hidden"></div>
 
 <script>
 async function init(){
-  let dem=[],emps=[];
+  const params=new URLSearchParams(location.search);
+  const perfil=params.get('perfil')||'total';
 
+  let dem=[];
   try{const wb=await fetchXlsx('dados-demanda.xlsx?v='+V);dem=parseDemanda(wb);}catch(e){}
-  try{const wb=await fetchXlsx('dados.xlsx?v='+V);const r=parsePPE(wb);emps=r.emps;}catch(e){}
 
   document.getElementById('loading').classList.add('hidden');
-  document.getElementById('dashboard').classList.remove('hidden');
+  document.getElementById('content').classList.remove('hidden');
 
-  const td=dem.length;
-  if(td===0&&emps.length===0){document.getElementById('dashboard').innerHTML='<div class="placeholder"><h2>Sem dados</h2><p>Nenhum arquivo de dados encontrado no repositório.</p></div>';return;}
+  if(!dem.length){document.getElementById('content').innerHTML='<div class="placeholder"><h2>Sem dados</h2><p>Demanda Fechada não encontrada.</p></div>';return;}
 
-  const mc=dem.filter(r=>r.mulher).length,pc=dem.filter(r=>r.pcd).length;
-  const ic=dem.filter(r=>r.idoso).length,fc=dem.filter(r=>r.infancia).length;
-  const i5=dem.filter(r=>r.integ5).length;
+  const perfilMap={
+    total:  {label:'Demanda Fechada — Todos os Cadastros',filter:r=>true,icon:'📋'},
+    mulher: {label:'Mulher Responsável',filter:r=>r.mulher,icon:'👩'},
+    idoso:  {label:'Idoso',filter:r=>r.idoso,icon:'🧓'},
+    pcd:    {label:'PCD',filter:r=>r.pcd,icon:'♿'},
+    infancia:{label:'1ª Infância',filter:r=>r.infancia,icon:'👶'},
+    integ5: {label:'5+ Integrantes',filter:r=>r.integ5,icon:'👪'},
+  };
+  const cfg=perfilMap[perfil]||perfilMap.total;
+  const filtered=dem.filter(cfg.filter);
 
-  const card=(label,value,pctVal,color,icon,href)=>
-    `<a class="dash-card ${color}" href="${href}">
-      <div class="dc-icon">${icon}</div>
-      <div class="dc-body">
-        <div class="dc-value">${value}</div>
-        <div class="dc-pct">${pctVal}</div>
-        <div class="dc-label">${label}</div>
-      </div>
-    </a>`;
+  // KPIs
+  const td=filtered.length;
+  const mc=filtered.filter(r=>r.mulher).length;
+  const ic=filtered.filter(r=>r.idoso).length;
+  const pc=filtered.filter(r=>r.pcd).length;
+  const fc=filtered.filter(r=>r.infancia).length;
+  const i5=filtered.filter(r=>r.integ5).length;
 
-  let html='';
-  if(td>0){
-    html+=`<div class="dash-section-title">Demanda Fechada</div>
-    <div class="dash-subtitle">Famílias aguardando atendimento habitacional definitivo</div>
-    <div class="dash-grid">
-      ${card('Total de Cadastros',fmt(td),'100%','teal','📋','demanda.html')}
-      ${card('Mulher Responsável',fmt(mc),pct(mc/td,1),'green','👩','demanda.html?perfil=mulher')}
-      ${card('Idoso',fmt(ic),pct(ic/td,1),'blue','🧓','demanda.html?perfil=idoso')}
-      ${card('PCD',fmt(pc),pct(pc/td,1),'purple','♿','demanda.html?perfil=pcd')}
-      ${card('1ª Infância',fmt(fc),pct(fc/td,1),'orange','👶','demanda.html?perfil=infancia')}
-      ${card('5+ Integrantes',fmt(i5),pct(i5/td,1),'slate','👪','demanda.html?perfil=integ5')}
-    </div>`;
-    document.getElementById('demanda-section').innerHTML=html;
-  }
+  let html=`<div class="view-label"><a class="crumb" href="index.html">Dashboard</a> › ${cfg.icon} ${cfg.label} — ${fmt(td)} famílias</div>`;
 
-  if(emps.length>0){
-    const tUH=emps.reduce((s,e)=>s+(e.uhTotal||0),0);
-    const tCo=emps.reduce((s,e)=>s+(e.contrato||0),0);
-    const tAp=emps.reduce((s,e)=>s+(e.aprov||0),0);
-    const tPe=emps.reduce((s,e)=>s+(e.pend||0),0);
-    document.getElementById('uh-section').innerHTML=`
-      <div class="dash-section-title">Atendimentos em Andamento</div>
-      <div class="dash-subtitle">Empreendimentos e unidades habitacionais em processo</div>
-      <div class="dash-grid">
-        ${card('Empreendimentos',fmt(emps.length),'Em andamento','teal','🏗','ppe.html')}
-        ${card('UHs Totais',fmt(tUH),'Unidades','blue','🏠','ppe.html')}
-        ${card('Contratos Assinados',fmt(tCo),pct(tCo/tUH,1)+' do total','green','📝','ppe.html')}
-        ${card('Aprovados',fmt(tAp),pct(tAp/tUH,1)+' do total','green','✅','ppe.html')}
-        ${card('Pendências',fmt(tPe),'Requerem atenção','red','⚠','ppe.html')}
-      </div>`;
-  }
+  html+=`<div class="kpi-row">
+    <div class="kpi"><div class="k-label">Total</div><div class="k-value">${fmt(td)}</div></div>
+    <div class="kpi success"><div class="k-label">Mulher Resp.</div><div class="k-value">${fmt(mc)}</div><div class="k-detail">${pct(mc/td,1)}</div></div>
+    <div class="kpi"><div class="k-label">Idoso</div><div class="k-value">${fmt(ic)}</div><div class="k-detail">${pct(ic/td,1)}</div></div>
+    <div class="kpi"><div class="k-label">PCD</div><div class="k-value">${fmt(pc)}</div><div class="k-detail">${pct(ic/td,1)}</div></div>
+    <div class="kpi"><div class="k-label">1ª Infância</div><div class="k-value">${fmt(fc)}</div><div class="k-detail">${pct(fc/td,1)}</div></div>
+    <div class="kpi"><div class="k-label">5+ Integ.</div><div class="k-value">${fmt(i5)}</div><div class="k-detail">${pct(i5/td,1)}</div></div>
+  </div>`;
+
+  html+=`<div class="charts-row">
+    <div class="chart-box"><canvas id="ch-reg"></canvas></div>
+    <div class="chart-box"><canvas id="ch-prog"></canvas></div>
+  </div>`;
+
+  html+=`<div class="chart-box full" style="margin-bottom:24px"><canvas id="ch-subpref"></canvas></div>`;
+
+  // Table
+  const pageSize=200;const shown=filtered.slice(0,pageSize);
+  html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;flex-wrap:wrap;gap:8px">
+    <span style="font-size:12px;color:var(--ink3)">${td>pageSize?'Mostrando '+pageSize+' de ':''}${fmt(td)} registros</span>
+    <button class="btn" onclick="exportData()">Exportar Excel</button>
+  </div>
+  <div class="dev-records"><table>
+    <thead><tr><th>Regional</th><th>Programa</th><th>Empreendimento</th><th>Subprefeitura</th><th>Distrito</th><th>Espaço Habitado</th></tr></thead>
+    <tbody>${shown.map(r=>'<tr><td>'+(r.regional||'—')+'</td><td>'+(r.programa||'—')+'</td><td>'+(r.empreendimento||'—')+'</td><td>'+(r.subpref||'—')+'</td><td>'+(r.distrito||'—')+'</td><td>'+(r.espaco||'—')+'</td></tr>').join('')}
+    ${td>pageSize?'<tr><td colspan="6" style="text-align:center;color:var(--ink3);padding:16px">Exporte para ver todos os '+fmt(td)+' registros.</td></tr>':''}
+    </tbody></table></div>`;
+
+  document.getElementById('content').innerHTML=html;
 
   // Charts
-  if(td>0){
-    document.getElementById('charts-wrap').innerHTML='<div class="charts-row"><div class="chart-box"><canvas id="ch-perfil"></canvas></div><div class="chart-box"><canvas id="ch-reg"></canvas></div></div>';
-    const teal='#009999',green='#10b981',gold='#f59e0b';
-    new Chart(document.getElementById('ch-perfil'),{type:'bar',
-      data:{labels:['Mulher Resp.','Idoso','5+ Integ.','1ª Infância','PCD'],datasets:[{data:[mc,ic,i5,fc,pc],backgroundColor:[teal,green,gold,'#3b82f6','#8b5cf6'],borderRadius:6}]},
-      options:{responsive:true,plugins:{title:{display:true,text:'Perfil Demográfico',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{display:false}},scales:{y:{grid:{display:false}},x:{grid:{display:false}}}}});
-    const rc={};dem.forEach(r=>{if(r.regional)rc[r.regional]=(rc[r.regional]||0)+1;});
-    const rs=Object.entries(rc).sort((a,b)=>b[1]-a[1]);
-    new Chart(document.getElementById('ch-reg'),{type:'doughnut',
-      data:{labels:rs.map(r=>r[0]),datasets:[{data:rs.map(r=>r[1]),backgroundColor:COLORS.palette.slice(0,rs.length),borderWidth:3,borderColor:'#fff'}]},
-      options:{responsive:true,plugins:{title:{display:true,text:'Famílias por Regional',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{position:'bottom',labels:{font:{size:12,family:'Inter'},padding:16,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}});
-  }
+  const rc={};filtered.forEach(r=>{if(r.regional)rc[r.regional]=(rc[r.regional]||0)+1;});
+  const rs=Object.entries(rc).sort((a,b)=>b[1]-a[1]);
+  new Chart(document.getElementById('ch-reg'),{type:'doughnut',
+    data:{labels:rs.map(r=>r[0]),datasets:[{data:rs.map(r=>r[1]),backgroundColor:COLORS.palette.slice(0,rs.length),borderWidth:3,borderColor:'#fff'}]},
+    options:{responsive:true,plugins:{title:{display:true,text:'Por Regional',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{position:'bottom',labels:{font:{size:12,family:'Inter'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}});
+
+  const pc2={};filtered.forEach(r=>{if(r.programa)pc2[r.programa]=(pc2[r.programa]||0)+1;});
+  const ps=Object.entries(pc2).sort((a,b)=>b[1]-a[1]);
+  new Chart(document.getElementById('ch-prog'),{type:'doughnut',
+    data:{labels:ps.map(p=>p[0]),datasets:[{data:ps.map(p=>p[1]),backgroundColor:COLORS.palette.slice(0,ps.length),borderWidth:3,borderColor:'#fff'}]},
+    options:{responsive:true,plugins:{title:{display:true,text:'Por Programa',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{position:'bottom',labels:{font:{size:12,family:'Inter'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}});
+
+  const sc={};filtered.forEach(r=>{if(r.subpref)sc[r.subpref]=(sc[r.subpref]||0)+1;});
+  const ss=Object.entries(sc).sort((a,b)=>b[1]-a[1]).slice(0,20);
+  new Chart(document.getElementById('ch-subpref'),{type:'bar',
+    data:{labels:ss.map(s=>s[0]),datasets:[{data:ss.map(s=>s[1]),backgroundColor:'#009999',borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{title:{display:true,text:'Top 20 Subprefeituras',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{display:false}},
+      scales:{x:{grid:{display:false}},y:{grid:{display:false},ticks:{font:{size:11,family:'Inter'}}}}}});
+  document.getElementById('ch-subpref').parentElement.style.height=Math.max(300,ss.length*30+80)+'px';
+
+  // Export
+  window._exportData=filtered;
+  window._exportTitle=cfg.label;
+}
+
+function exportData(){
+  const f=window._exportData||[];
+  const h=['Regional','Programa','Empreendimento','Espaço Habitado','Subprefeitura','Distrito','Mulher','Idoso','PCD','1ª Infância','5+ Integ.'];
+  const rows=f.map(r=>[r.regional,r.programa,r.empreendimento,r.espaco,r.subpref,r.distrito,r.mulher?'Sim':'',r.idoso?'Sim':'',r.pcd?'Sim':'',r.infancia?'Sim':'',r.integ5?'Sim':'']);
+  const ws=XLSX.utils.aoa_to_sheet([h,...rows]);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Demanda');
+  XLSX.writeFile(wb,(window._exportTitle||'demanda').replace(/[^a-zA-Z0-9]/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.xlsx');
 }
 init();
 </script>
