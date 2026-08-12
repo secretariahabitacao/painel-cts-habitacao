@@ -35,6 +35,15 @@ html,body{font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;
 
 main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 
+/* NAV MENU */
+.prog-menu{display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:24px;overflow-x:auto}
+.prog-menu-btn{background:none;border:none;border-bottom:3px solid transparent;padding:12px 20px;font-family:inherit;font-size:13px;font-weight:600;color:var(--ink3);cursor:pointer;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:8px}
+.prog-menu-btn:hover{color:var(--ink);background:var(--bg)}
+.prog-menu-btn.active{color:var(--teal);border-bottom-color:var(--teal)}
+.prog-menu-btn .menu-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.prog-menu-btn .menu-dot.on{background:var(--green)}
+.prog-menu-btn .menu-dot.off{background:var(--line)}
+
 /* NAV PROGRAMS */
 .program-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:28px}
 .prog-btn{background:var(--surface);border:2px solid var(--line);border-radius:var(--radius);padding:20px;cursor:pointer;transition:all .2s;text-align:left;display:flex;flex-direction:column;gap:12px;font-family:inherit;position:relative;overflow:hidden}
@@ -235,27 +244,12 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
   </div>
 
   <!-- PROGRAM NAV -->
-  <nav class="program-nav" id="prog-nav">
-    <button class="prog-btn" data-prog="ppe" onclick="selectProg('ppe')">
-      <div class="prog-top"><div class="prog-icon ppe">🏠</div><div class="prog-info"><h3>Unidade Habitacional</h3><p>Empreendimentos, dossiês e contratos em andamento</p></div></div>
-      <span class="prog-status on" id="status-ppe">Ativo</span>
-    </button>
-    <button class="prog-btn" data-prog="auxilio" onclick="selectProg('auxilio')">
-      <div class="prog-top"><div class="prog-icon aux">💰</div><div class="prog-info"><h3>Auxílio Aluguel</h3><p>Famílias, pagamentos e acompanhamento</p></div></div>
-      <span class="prog-status off" id="status-auxilio">Em breve</span>
-    </button>
-    <button class="prog-btn" data-prog="emergencial" onclick="selectProg('emergencial')">
-      <div class="prog-top"><div class="prog-icon emg">🚨</div><div class="prog-info"><h3>Emergencial</h3><p>Atendimentos emergenciais e remoções</p></div></div>
-      <span class="prog-status off" id="status-emergencial">Em breve</span>
-    </button>
-    <button class="prog-btn" data-prog="indenizacao" onclick="selectProg('indenizacao')">
-      <div class="prog-top"><div class="prog-icon ind">📋</div><div class="prog-info"><h3>Indenização</h3><p>Processos indenizatórios</p></div></div>
-      <span class="prog-status off" id="status-indenizacao">Em breve</span>
-    </button>
-    <button class="prog-btn" data-prog="historico" onclick="selectProg('historico')">
-      <div class="prog-top"><div class="prog-icon hist">📊</div><div class="prog-info"><h3>Histórico</h3><p>Compilado anual de atendimentos</p></div></div>
-      <span class="prog-status off" id="status-historico">Em breve</span>
-    </button>
+  <nav class="prog-menu" id="prog-nav">
+    <button class="prog-menu-btn" data-prog="ppe" onclick="selectProg('ppe')"><span class="menu-dot on" id="status-ppe"></span>Unidade Habitacional</button>
+    <button class="prog-menu-btn" data-prog="auxilio" onclick="selectProg('auxilio')"><span class="menu-dot off" id="status-auxilio"></span>Auxílio Aluguel</button>
+    <button class="prog-menu-btn" data-prog="emergencial" onclick="selectProg('emergencial')"><span class="menu-dot on" id="status-emergencial"></span>Emergencial</button>
+    <button class="prog-menu-btn" data-prog="indenizacao" onclick="selectProg('indenizacao')"><span class="menu-dot on" id="status-indenizacao"></span>Indenização</button>
+    <button class="prog-menu-btn" data-prog="historico" onclick="selectProg('historico')"><span class="menu-dot off" id="status-historico"></span>Histórico</button>
   </nav>
 
   <!-- PPE CONTENT -->
@@ -576,7 +570,7 @@ function parsePPE(wb) {
 // ============================================================
 function selectProg(prog) {
   S.activeProg=prog;
-  document.querySelectorAll('.prog-btn').forEach(b=>b.classList.toggle('active',b.dataset.prog===prog));
+  document.querySelectorAll('.prog-menu-btn').forEach(b=>b.classList.toggle('active',b.dataset.prog===prog));
   document.querySelectorAll('.prog-content').forEach(c=>c.classList.toggle('active',c.id==='prog-'+prog));
 
   if(prog==='ppe'&&S.ppe.loaded){renderPPE();}
@@ -1432,23 +1426,32 @@ function renderMainDashboard(){
   const tUH=ppe.reduce((s,e)=>s+(e.uhTotal||0),0);
   const tCo=ppe.reduce((s,e)=>s+(e.contrato||0),0);
   const tAp=ppe.reduce((s,e)=>s+(e.aprov||0),0);
-  const kpis=[];
+
+  const mkpi=k=>'<div class="kpi '+k.c+'"><div class="k-label">'+k.l+'</div><div class="k-value" style="font-size:18px">'+k.v+'</div><div class="k-detail">'+k.d+'</div></div>';
+
+  let html='';
   if(td>0){
-    kpis.push({l:'Demanda Fechada',v:fmt(td),d:'Fam\u00edlias aguardando UH',c:''});
-    kpis.push({l:'Mulher Respons\u00e1vel',v:fmt(mc)+' - '+pct(mc/td,1),d:'',c:'success'});
-    kpis.push({l:'Idoso',v:fmt(ic)+' - '+pct(ic/td,1),d:'',c:''});
-    kpis.push({l:'PCD',v:fmt(pc)+' - '+pct(pc/td,1),d:'',c:'warn'});
-    kpis.push({l:'1\u00aa Inf\u00e2ncia',v:fmt(fc)+' - '+pct(fc/td,1),d:'',c:''});
-    kpis.push({l:'5+ Integrantes',v:fmt(i5)+' - '+pct(i5/td,1),d:'',c:''});
+    html+='<div style="margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);font-weight:600">Demanda Fechada \u2014 Fam\u00edlias aguardando atendimento habitacional</div>';
+    html+='<div class="kpi-row" style="margin-bottom:20px">';
+    html+=mkpi({l:'Total de Cadastros',v:fmt(td),d:'Fam\u00edlias na demanda',c:''});
+    html+=mkpi({l:'Mulher Respons\u00e1vel',v:fmt(mc)+' \u2014 '+pct(mc/td,1),d:'',c:'success'});
+    html+=mkpi({l:'Idoso',v:fmt(ic)+' \u2014 '+pct(ic/td,1),d:'',c:''});
+    html+=mkpi({l:'PCD',v:fmt(pc)+' \u2014 '+pct(pc/td,1),d:'',c:'warn'});
+    html+=mkpi({l:'1\u00aa Inf\u00e2ncia',v:fmt(fc)+' \u2014 '+pct(fc/td,1),d:'',c:''});
+    html+=mkpi({l:'5+ Integrantes',v:fmt(i5)+' \u2014 '+pct(i5/td,1),d:'',c:''});
+    html+='</div>';
   }
   if(ppe.length>0){
-    kpis.push({l:'Empreendimentos',v:fmt(ppe.length),d:'Em andamento',c:''});
-    kpis.push({l:'UHs em Andamento',v:fmt(tUH),d:'Unidades habitacionais',c:''});
-    kpis.push({l:'Contratos Assinados',v:fmt(tCo),d:tUH?pct(tCo/tUH,1)+' do total':'',c:'success'});
+    html+='<div style="margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);font-weight:600">Atendimentos em Andamento</div>';
+    html+='<div class="kpi-row" style="margin-bottom:20px">';
+    html+=mkpi({l:'Empreendimentos',v:fmt(ppe.length),d:'Em andamento',c:''});
+    html+=mkpi({l:'UHs em Andamento',v:fmt(tUH),d:'Unidades habitacionais',c:''});
+    html+=mkpi({l:'Contratos Assinados',v:fmt(tCo),d:tUH?pct(tCo/tUH,1)+' do total':'',c:'success'});
+    html+=mkpi({l:'Aprovados',v:fmt(tAp),d:tUH?pct(tAp/tUH,1)+' do total':'',c:'success'});
+    html+='</div>';
   }
-  document.getElementById('main-kpis').innerHTML=kpis.map(k=>
-    '<div class="kpi '+k.c+'"><div class="k-label">'+k.l+'</div><div class="k-value" style="font-size:'+(k.v.length>15?'18':'26')+'px">'+k.v+'</div><div class="k-detail">'+k.d+'</div></div>'
-  ).join('');
+  document.getElementById('main-kpis').innerHTML=html;
+
   if(window._mainCharts){window._mainCharts.forEach(c=>c.destroy());}
   window._mainCharts=[];
   const teal='#009999',green='#1B7A3D',gold='#C9A227';
@@ -1464,7 +1467,7 @@ function renderMainDashboard(){
     const rs=Object.entries(rc).sort((a,b)=>b[1]-a[1]);
     window._mainCharts.push(new Chart(document.getElementById('main-ch-reg'),{type:'doughnut',
       data:{labels:rs.map(r=>r[0]),datasets:[{data:rs.map(r=>r[1]),backgroundColor:colors.slice(0,rs.length),borderWidth:2,borderColor:'#fff'}]},
-      options:{responsive:true,plugins:{title:{display:true,text:'Demanda por Regional',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}}));
+      options:{responsive:true,plugins:{title:{display:true,text:'Fam\u00edlias Aguardando Atendimento Habitacional \u2014 por Regional',font:{size:13,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}}));
   } else { document.getElementById('main-charts-wrap').innerHTML=''; }
 }
 
@@ -1493,15 +1496,15 @@ async function autoLoad(){
     const statusEl=document.getElementById('status-'+p.prog);
     for(const name of p.files){
       try{
-        if(statusEl){statusEl.className='prog-status on';statusEl.textContent='Carregando...';}
+        if(statusEl){statusEl.className='menu-dot on';}
         const wb=await fetchXlsx(name+'?v='+Date.now());
         if(p.prog==='ppe')parsePPE(wb);
         if(p.prog==='emergencial')parseEmergencial(wb);
-        if(statusEl){statusEl.textContent='Ativo';}
+        if(statusEl){statusEl.className='menu-dot on';}
         return;
       }catch(e){}
     }
-    if(statusEl){statusEl.className='prog-status off';statusEl.textContent='Em breve';}
+    if(statusEl){statusEl.className='menu-dot off';}
   };
 
   await Promise.all(progs.map(p=>loadProg(p)));
