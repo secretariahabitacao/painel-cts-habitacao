@@ -27,6 +27,7 @@
   --slate: #64748b; --slate-light: #f1f5f9;
 }
 html,body{font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.6;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;min-height:100vh}
+.hidden{display:none!important}
 
 /* HEADER */
 .header{background:rgba(255,255,255,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:100}

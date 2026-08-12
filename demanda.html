@@ -60,14 +60,22 @@ async function init(){
 
   let html=`<div class="view-label"><a class="crumb" href="index.html">Dashboard</a> › ${cfg.icon} ${cfg.label} — ${fmt(td)} famílias</div>`;
 
-  html+=`<div class="kpi-row">
-    <div class="kpi"><div class="k-label">Total</div><div class="k-value">${fmt(td)}</div></div>
-    <div class="kpi success"><div class="k-label">Mulher Resp.</div><div class="k-value">${fmt(mc)}</div><div class="k-detail">${pct(mc/td,1)}</div></div>
-    <div class="kpi"><div class="k-label">Idoso</div><div class="k-value">${fmt(ic)}</div><div class="k-detail">${pct(ic/td,1)}</div></div>
-    <div class="kpi"><div class="k-label">PCD</div><div class="k-value">${fmt(pc)}</div><div class="k-detail">${pct(ic/td,1)}</div></div>
-    <div class="kpi"><div class="k-label">1ª Infância</div><div class="k-value">${fmt(fc)}</div><div class="k-detail">${pct(fc/td,1)}</div></div>
-    <div class="kpi"><div class="k-label">5+ Integ.</div><div class="k-value">${fmt(i5)}</div><div class="k-detail">${pct(i5/td,1)}</div></div>
-  </div>`;
+  const cards=[
+    {key:'total',  label:'Total',          v:td, p:'',            icon:'📋'},
+    {key:'mulher', label:'Mulher Resp.',    v:mc, p:pct(mc/td,1), icon:'👩'},
+    {key:'idoso',  label:'Idoso',           v:ic, p:pct(ic/td,1), icon:'🧓'},
+    {key:'pcd',    label:'PCD',             v:pc, p:pct(pc/td,1), icon:'♿'},
+    {key:'infancia',label:'1ª Infância',    v:fc, p:pct(fc/td,1), icon:'👶'},
+    {key:'integ5', label:'5+ Integ.',       v:i5, p:pct(i5/td,1), icon:'👪'},
+  ];
+  html+=`<div class="kpi-row">${cards.map(c=>{
+    const active=c.key===perfil?' success':'';
+    return `<a href="demanda.html?perfil=${c.key}" class="kpi${active}" style="text-decoration:none;color:inherit;cursor:pointer">
+      <div class="k-label">${c.icon} ${c.label}</div>
+      <div class="k-value">${fmt(c.v)}</div>
+      ${c.p?`<div class="k-detail">${c.p}</div>`:''}
+    </a>`;
+  }).join('')}</div>`;
 
   html+=`<div class="charts-row">
     <div class="chart-box"><canvas id="ch-reg"></canvas></div>
