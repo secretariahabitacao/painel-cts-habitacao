@@ -26,22 +26,20 @@
 <div id="loading" style="text-align:center;padding:60px;color:var(--ink3)">Carregando dados...</div>
 <div id="dashboard" class="hidden">
   <div id="demanda-section"></div>
-  <div id="uh-section" style="margin-top:32px"></div>
   <div id="charts-wrap" style="margin-top:24px"></div>
 </div>
 
 <script>
 async function init(){
-  let dem=[],emps=[];
+  let dem=[];
 
   try{const wb=await fetchXlsx('dados-demanda.xlsx?v='+V);dem=parseDemanda(wb);}catch(e){}
-  try{const wb=await fetchXlsx('dados.xlsx?v='+V);const r=parsePPE(wb);emps=r.emps;}catch(e){}
 
   document.getElementById('loading').classList.add('hidden');
   document.getElementById('dashboard').classList.remove('hidden');
 
   const td=dem.length;
-  if(td===0&&emps.length===0){document.getElementById('dashboard').innerHTML='<div class="placeholder"><h2>Sem dados</h2><p>Nenhum arquivo de dados encontrado no repositório.</p></div>';return;}
+  if(td===0){document.getElementById('dashboard').innerHTML='<div class="placeholder"><h2>Sem dados</h2><p>Nenhum arquivo de dados encontrado no repositório.</p></div>';return;}
 
   const mc=dem.filter(r=>r.mulher).length,pc=dem.filter(r=>r.pcd).length;
   const ic=dem.filter(r=>r.idoso).length,fc=dem.filter(r=>r.infancia).length;
@@ -57,10 +55,8 @@ async function init(){
       </div>
     </a>`;
 
-  let html='';
-  if(td>0){
-    html+=`<div class="dash-section-title">Demanda Fechada</div>
-    <div class="dash-subtitle">Famílias aguardando atendimento habitacional definitivo</div>
+  document.getElementById('demanda-section').innerHTML=`
+    <div class="dash-section-title">Famílias aguardando atendimento definitivo</div>
     <div class="dash-grid">
       ${card('Total de Cadastros',fmt(td),'100%','teal','📋','demanda.html')}
       ${card('Mulher Responsável',fmt(mc),pct(mc/td,1),'green','👩','demanda.html?perfil=mulher')}
@@ -69,39 +65,18 @@ async function init(){
       ${card('1ª Infância',fmt(fc),pct(fc/td,1),'orange','👶','demanda.html?perfil=infancia')}
       ${card('5+ Integrantes',fmt(i5),pct(i5/td,1),'slate','👪','demanda.html?perfil=integ5')}
     </div>`;
-    document.getElementById('demanda-section').innerHTML=html;
-  }
-
-  if(emps.length>0){
-    const tUH=emps.reduce((s,e)=>s+(e.uhTotal||0),0);
-    const tCo=emps.reduce((s,e)=>s+(e.contrato||0),0);
-    const tAp=emps.reduce((s,e)=>s+(e.aprov||0),0);
-    const tPe=emps.reduce((s,e)=>s+(e.pend||0),0);
-    document.getElementById('uh-section').innerHTML=`
-      <div class="dash-section-title">Atendimentos em Andamento</div>
-      <div class="dash-subtitle">Empreendimentos e unidades habitacionais em processo</div>
-      <div class="dash-grid">
-        ${card('Empreendimentos',fmt(emps.length),'Em andamento','teal','🏗','ppe.html')}
-        ${card('UHs Totais',fmt(tUH),'Unidades','blue','🏠','ppe.html')}
-        ${card('Contratos Assinados',fmt(tCo),pct(tCo/tUH,1)+' do total','green','📝','ppe.html')}
-        ${card('Aprovados',fmt(tAp),pct(tAp/tUH,1)+' do total','green','✅','ppe.html')}
-        ${card('Pendências',fmt(tPe),'Requerem atenção','red','⚠','ppe.html')}
-      </div>`;
-  }
 
   // Charts
-  if(td>0){
-    document.getElementById('charts-wrap').innerHTML='<div class="charts-row"><div class="chart-box"><canvas id="ch-perfil"></canvas></div><div class="chart-box"><canvas id="ch-reg"></canvas></div></div>';
-    const teal='#009999',green='#10b981',gold='#f59e0b';
-    new Chart(document.getElementById('ch-perfil'),{type:'bar',
-      data:{labels:['Mulher Resp.','Idoso','5+ Integ.','1ª Infância','PCD'],datasets:[{data:[mc,ic,i5,fc,pc],backgroundColor:[teal,green,gold,'#3b82f6','#8b5cf6'],borderRadius:6}]},
-      options:{responsive:true,plugins:{title:{display:true,text:'Perfil Demográfico',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{display:false}},scales:{y:{grid:{display:false}},x:{grid:{display:false}}}}});
-    const rc={};dem.forEach(r=>{if(r.regional)rc[r.regional]=(rc[r.regional]||0)+1;});
-    const rs=Object.entries(rc).sort((a,b)=>b[1]-a[1]);
-    new Chart(document.getElementById('ch-reg'),{type:'doughnut',
-      data:{labels:rs.map(r=>r[0]),datasets:[{data:rs.map(r=>r[1]),backgroundColor:COLORS.palette.slice(0,rs.length),borderWidth:3,borderColor:'#fff'}]},
-      options:{responsive:true,plugins:{title:{display:true,text:'Famílias por Regional',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{position:'bottom',labels:{font:{size:12,family:'Inter'},padding:16,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}});
-  }
+  document.getElementById('charts-wrap').innerHTML='<div class="charts-row"><div class="chart-box"><canvas id="ch-perfil"></canvas></div><div class="chart-box"><canvas id="ch-reg"></canvas></div></div>';
+  const teal='#009999',green='#10b981',gold='#f59e0b';
+  new Chart(document.getElementById('ch-perfil'),{type:'bar',
+    data:{labels:['Mulher Resp.','Idoso','5+ Integ.','1ª Infância','PCD'],datasets:[{data:[mc,ic,i5,fc,pc],backgroundColor:[teal,green,gold,'#3b82f6','#8b5cf6'],borderRadius:6}]},
+    options:{responsive:true,plugins:{title:{display:true,text:'Perfil Demográfico',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{display:false}},scales:{y:{grid:{display:false}},x:{grid:{display:false}}}}});
+  const rc={};dem.forEach(r=>{if(r.regional)rc[r.regional]=(rc[r.regional]||0)+1;});
+  const rs=Object.entries(rc).sort((a,b)=>b[1]-a[1]);
+  new Chart(document.getElementById('ch-reg'),{type:'doughnut',
+    data:{labels:rs.map(r=>r[0]),datasets:[{data:rs.map(r=>r[1]),backgroundColor:COLORS.palette.slice(0,rs.length),borderWidth:3,borderColor:'#fff'}]},
+    options:{responsive:true,plugins:{title:{display:true,text:'Famílias por Regional',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{position:'bottom',labels:{font:{size:12,family:'Inter'},padding:16,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}});
 }
 init();
 </script>

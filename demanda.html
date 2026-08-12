@@ -40,7 +40,7 @@ async function init(){
   if(!dem.length){document.getElementById('content').innerHTML='<div class="placeholder"><h2>Sem dados</h2><p>Demanda Fechada não encontrada.</p></div>';return;}
 
   const perfilMap={
-    total:  {label:'Demanda Fechada — Todos os Cadastros',filter:r=>true,icon:'📋'},
+    total:  {label:'Famílias aguardando atendimento definitivo',filter:r=>true,icon:'📋'},
     mulher: {label:'Mulher Responsável',filter:r=>r.mulher,icon:'👩'},
     idoso:  {label:'Idoso',filter:r=>r.idoso,icon:'🧓'},
     pcd:    {label:'PCD',filter:r=>r.pcd,icon:'♿'},

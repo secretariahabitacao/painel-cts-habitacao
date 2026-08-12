@@ -52,6 +52,21 @@ async function fetchXlsx(url){
   return XLSX.read(new Uint8Array(buf),{type:'array',cellDates:true});
 }
 
+/** Tenta carregar JSON pré-convertido (rápido). Se não existir, cai no XLSX. */
+async function loadData(jsonName, xlsxName, parser){
+  // Tenta JSON primeiro (milissegundos)
+  try{
+    const r=await fetch(jsonName+'?v='+V);
+    if(r.ok){const data=await r.json();return data;}
+  }catch(e){}
+  // Fallback: XLSX (lento mas funciona sem o conversor)
+  try{
+    const wb=await fetchXlsx(xlsxName+'?v='+V);
+    return parser(wb);
+  }catch(e){}
+  return null;
+}
+
 const V=Date.now(); // anti-cache global
 
 /* --- PARSE PPE --- */
