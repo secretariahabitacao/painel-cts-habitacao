@@ -265,6 +265,37 @@ tr:hover td { background: var(--bg); }
 .dev-badge.excluido, .dev-badge.reprovado, .dev-badge.desistencia { background: var(--danger-light); color: var(--danger); }
 .dev-badge.outros { background: var(--line); color: var(--ink2); }
 
+
+/* DASHBOARD CARDS */
+.dash-section-title { font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -0.5px; margin-bottom: 4px; }
+.dash-subtitle { font-size: 13px; color: var(--ink3); font-weight: 500; margin-bottom: 20px; }
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 8px; }
+.dash-card {
+  background: #fff; border-radius: 14px; padding: 18px; cursor: pointer;
+  border: 1px solid var(--line); transition: all 0.25s;
+  display: flex; align-items: flex-start; gap: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.dash-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); border-color: transparent; }
+.dash-card .dc-icon { font-size: 24px; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+.dash-card .dc-body { flex: 1; min-width: 0; }
+.dash-card .dc-value { font-size: 22px; font-weight: 800; color: var(--ink); line-height: 1.1; letter-spacing: -0.5px; }
+.dash-card .dc-pct { font-size: 13px; font-weight: 700; margin-top: 2px; }
+.dash-card .dc-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; color: var(--ink3); margin-top: 6px; }
+.dash-card.teal .dc-pct { color: #009999; }
+.dash-card.green .dc-pct { color: #10b981; }
+.dash-card.blue .dc-pct { color: #3b82f6; }
+.dash-card.purple .dc-pct { color: #8b5cf6; }
+.dash-card.orange .dc-pct { color: #f97316; }
+.dash-card.red .dc-pct { color: #ef4444; }
+.dash-card.slate .dc-pct { color: #64748b; }
+.dash-card.teal:hover { background: linear-gradient(135deg, #f0fdfa 0%, #fff 100%); }
+.dash-card.green:hover { background: linear-gradient(135deg, #ecfdf5 0%, #fff 100%); }
+.dash-card.blue:hover { background: linear-gradient(135deg, #eff6ff 0%, #fff 100%); }
+.dash-card.purple:hover { background: linear-gradient(135deg, #f5f3ff 0%, #fff 100%); }
+.dash-card.orange:hover { background: linear-gradient(135deg, #fff7ed 0%, #fff 100%); }
+.dash-card.red:hover { background: linear-gradient(135deg, #fef2f2 0%, #fff 100%); }
+
 /* PLACEHOLDER */
 .placeholder {
   text-align: center; padding: 100px 32px; background: #fff; border: 2px dashed var(--line);
@@ -308,7 +339,6 @@ tr:hover td { background: var(--bg); }
     <div class="sub">Painel de Gestão · v2.5</div>
   </div>
   <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
-  <button class="upload-btn" onclick="document.getElementById('file-input').click()">Atualizar planilha</button>
 </div>
 </header>
 
@@ -319,13 +349,14 @@ tr:hover td { background: var(--bg); }
       <strong>Painel de Gestão — Coordenadoria de Trabalho Social</strong> — Indicadores consolidados da demanda habitacional e dos atendimentos em andamento pela Secretaria Municipal de Habitação.
     </div>
     <nav class="prog-menu" id="prog-nav" style="margin-bottom:24px">
-      <button class="prog-menu-btn" data-prog="ppe" onclick="selectProg('ppe')"><span class="menu-dot on" id="status-ppe"></span>Unidade Habitacional</button>
-      <button class="prog-menu-btn" data-prog="auxilio" onclick="selectProg('auxilio')"><span class="menu-dot off" id="status-auxilio"></span>Auxílio Aluguel</button>
-      <button class="prog-menu-btn" data-prog="emergencial" onclick="selectProg('emergencial')"><span class="menu-dot on" id="status-emergencial"></span>Emergencial</button>
-      <button class="prog-menu-btn" data-prog="indenizacao" onclick="selectProg('indenizacao')"><span class="menu-dot on" id="status-indenizacao"></span>Indenização</button>
-      <button class="prog-menu-btn" data-prog="historico" onclick="selectProg('historico')"><span class="menu-dot off" id="status-historico"></span>Histórico</button>
+      <button class="prog-menu-btn" data-prog="ppe" onclick="selectProg('ppe')"><span class="menu-dot on" id="status-ppe"></span>🏠 Unidade Habitacional</button>
+      <button class="prog-menu-btn" data-prog="auxilio" onclick="selectProg('auxilio')"><span class="menu-dot off" id="status-auxilio"></span>💰 Auxílio Aluguel</button>
+      <button class="prog-menu-btn" data-prog="emergencial" onclick="selectProg('emergencial')"><span class="menu-dot on" id="status-emergencial"></span>🚨 Emergencial</button>
+      <button class="prog-menu-btn" data-prog="indenizacao" onclick="selectProg('indenizacao')"><span class="menu-dot on" id="status-indenizacao"></span>📋 Indenização</button>
+      <button class="prog-menu-btn" data-prog="historico" onclick="selectProg('historico')"><span class="menu-dot off" id="status-historico"></span>📊 Histórico</button>
     </nav>
     <div id="main-kpis" style="margin-bottom:16px"></div>
+    <div id="main-drill"></div>
     <div id="main-charts-wrap" style="margin-bottom:24px"></div>
   </div>
 
@@ -1499,56 +1530,115 @@ function renderMainDashboard(){
   const ppe=S.ppe&&S.ppe.loaded?S.ppe.emps:[];
   if(dem.length===0&&ppe.length===0){document.getElementById('main-dashboard').classList.add('hidden');return;}
   document.getElementById('main-dashboard').classList.remove('hidden');
+
   const td=dem.length;
-  const mc=dem.filter(r=>r.mulher).length;const pc=dem.filter(r=>r.pcd).length;
-  const ic=dem.filter(r=>r.idoso).length;const fc=dem.filter(r=>r.infancia).length;
+  const mc=dem.filter(r=>r.mulher).length;
+  const pc=dem.filter(r=>r.pcd).length;
+  const ic=dem.filter(r=>r.idoso).length;
+  const fc=dem.filter(r=>r.infancia).length;
   const i5=dem.filter(r=>r.integ5).length;
   const tUH=ppe.reduce((s,e)=>s+(e.uhTotal||0),0);
   const tCo=ppe.reduce((s,e)=>s+(e.contrato||0),0);
   const tAp=ppe.reduce((s,e)=>s+(e.aprov||0),0);
+  const tPe=ppe.reduce((s,e)=>s+(e.pend||0),0);
 
-  const mkpi=k=>'<div class="kpi '+k.c+'"><div class="k-label">'+k.l+'</div><div class="k-value" style="font-size:18px">'+k.v+'</div><div class="k-detail">'+k.d+'</div></div>';
+  // Card helper
+  const card=(label,value,pctVal,color,icon,clickId)=>
+    `<div class="dash-card ${color}" onclick="drillDown('${clickId}')">
+      <div class="dc-icon">${icon}</div>
+      <div class="dc-body">
+        <div class="dc-value">${value}</div>
+        <div class="dc-pct">${pctVal}</div>
+        <div class="dc-label">${label}</div>
+      </div>
+    </div>`;
 
   let html='';
+
   if(td>0){
-    html+='<div style="margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);font-weight:600">Demanda Fechada \u2014 Fam\u00edlias aguardando atendimento habitacional</div>';
-    html+='<div class="kpi-row" style="margin-bottom:20px">';
-    html+=mkpi({l:'Total de Cadastros',v:fmt(td),d:'Fam\u00edlias na demanda',c:''});
-    html+=mkpi({l:'Mulher Respons\u00e1vel',v:fmt(mc)+' \u2014 '+pct(mc/td,1),d:'',c:'success'});
-    html+=mkpi({l:'Idoso',v:fmt(ic)+' \u2014 '+pct(ic/td,1),d:'',c:''});
-    html+=mkpi({l:'PCD',v:fmt(pc)+' \u2014 '+pct(pc/td,1),d:'',c:'warn'});
-    html+=mkpi({l:'1\u00aa Inf\u00e2ncia',v:fmt(fc)+' \u2014 '+pct(fc/td,1),d:'',c:''});
-    html+=mkpi({l:'5+ Integrantes',v:fmt(i5)+' \u2014 '+pct(i5/td,1),d:'',c:''});
-    html+='</div>';
+    html+=`<div class="dash-section-title">Demanda Fechada</div>
+    <div class="dash-subtitle">Fam\u00edlias aguardando atendimento habitacional definitivo</div>
+    <div class="dash-grid">
+      ${card('Total de Cadastros',fmt(td),'100%','teal','\u{1F4CB}','dem-total')}
+      ${card('Mulher Respons\u00e1vel',fmt(mc),pct(mc/td,1),'green','\u{1F469}','dem-mulher')}
+      ${card('Idoso',fmt(ic),pct(ic/td,1),'blue','\u{1F9D3}','dem-idoso')}
+      ${card('PCD',fmt(pc),pct(pc/td,1),'purple','\u{267F}','dem-pcd')}
+      ${card('1\u00aa Inf\u00e2ncia',fmt(fc),pct(fc/td,1),'orange','\u{1F476}','dem-infancia')}
+      ${card('5+ Integrantes',fmt(i5),pct(i5/td,1),'slate','\u{1F46A}','dem-integ5')}
+    </div>`;
   }
+
   if(ppe.length>0){
-    html+='<div style="margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);font-weight:600">Atendimentos em Andamento</div>';
-    html+='<div class="kpi-row" style="margin-bottom:20px">';
-    html+=mkpi({l:'Empreendimentos',v:fmt(ppe.length),d:'Em andamento',c:''});
-    html+=mkpi({l:'UHs em Andamento',v:fmt(tUH),d:'Unidades habitacionais',c:''});
-    html+=mkpi({l:'Contratos Assinados',v:fmt(tCo),d:tUH?pct(tCo/tUH,1)+' do total':'',c:'success'});
-    html+=mkpi({l:'Aprovados',v:fmt(tAp),d:tUH?pct(tAp/tUH,1)+' do total':'',c:'success'});
-    html+='</div>';
+    html+=`<div class="dash-section-title" style="margin-top:32px">Atendimentos em Andamento</div>
+    <div class="dash-subtitle">Empreendimentos e unidades habitacionais em processo</div>
+    <div class="dash-grid">
+      ${card('Empreendimentos',fmt(ppe.length),'Em andamento','teal','\u{1F3D7}','uh-emps')}
+      ${card('UHs Totais',fmt(tUH),'Unidades','blue','\u{1F3E0}','uh-total')}
+      ${card('Contratos Assinados',fmt(tCo),pct(tCo/tUH,1)+' do total','green','\u{1F4DD}','uh-contratos')}
+      ${card('Aprovados',fmt(tAp),pct(tAp/tUH,1)+' do total','green','\u2705','uh-aprovados')}
+      ${card('Pend\u00eancias',fmt(tPe),'Requerem aten\u00e7\u00e3o','red','\u26A0','uh-pendencias')}
+    </div>`;
   }
+
   document.getElementById('main-kpis').innerHTML=html;
 
+  // Charts
   if(window._mainCharts){window._mainCharts.forEach(c=>c.destroy());}
   window._mainCharts=[];
-  const teal='#009999',green='#1B7A3D',gold='#C9A227';
-  const colors=[teal,green,gold,'#2B6CB0','#6B46C1','#C05621','#CC3333','#5BADA7'];
+  const teal='#009999',green='#10b981',gold='#f59e0b';
+  const colors=[teal,green,'#f59e0b','#3b82f6','#8b5cf6','#f97316','#ef4444','#64748b'];
   if(td>0){
     document.getElementById('main-charts-wrap').innerHTML='<div class="charts-row"><div class="chart-box"><canvas id="main-ch-perfil"></canvas></div><div class="chart-box"><canvas id="main-ch-reg"></canvas></div></div>';
-    const perfil=[{l:'Mulher Resp.',v:mc,c:teal},{l:'Idoso',v:ic,c:green},{l:'5+ Integ.',v:i5,c:gold},{l:'1\u00aa Inf\u00e2ncia',v:fc,c:'#2B6CB0'},{l:'PCD',v:pc,c:'#6B46C1'}];
+    const perfil=[{l:'Mulher Resp.',v:mc,c:teal},{l:'Idoso',v:ic,c:green},{l:'5+ Integ.',v:i5,c:gold},{l:'1\u00aa Inf\u00e2ncia',v:fc,c:'#3b82f6'},{l:'PCD',v:pc,c:'#8b5cf6'}];
     window._mainCharts.push(new Chart(document.getElementById('main-ch-perfil'),{type:'bar',
-      data:{labels:perfil.map(p=>p.l),datasets:[{data:perfil.map(p=>p.v),backgroundColor:perfil.map(p=>p.c),borderRadius:4}]},
-      options:{responsive:true,plugins:{title:{display:true,text:'Perfil Demogr\u00e1fico \u2014 Demanda Fechada',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
-        scales:{y:{grid:{display:false},ticks:{font:{size:11,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:10,family:'Arial'}}}}}}));
+      data:{labels:perfil.map(p=>p.l),datasets:[{data:perfil.map(p=>p.v),backgroundColor:perfil.map(p=>p.c),borderRadius:6}]},
+      options:{responsive:true,plugins:{title:{display:true,text:'Perfil Demogr\u00e1fico',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{display:false}},
+        scales:{y:{grid:{display:false},ticks:{font:{size:12,family:'Inter'}}},x:{grid:{display:false},ticks:{font:{size:11,family:'Inter'}}}}}}));
     const rc={};dem.forEach(r=>{if(r.regional)rc[r.regional]=(rc[r.regional]||0)+1;});
     const rs=Object.entries(rc).sort((a,b)=>b[1]-a[1]);
     window._mainCharts.push(new Chart(document.getElementById('main-ch-reg'),{type:'doughnut',
-      data:{labels:rs.map(r=>r[0]),datasets:[{data:rs.map(r=>r[1]),backgroundColor:colors.slice(0,rs.length),borderWidth:2,borderColor:'#fff'}]},
-      options:{responsive:true,plugins:{title:{display:true,text:'Fam\u00edlias Aguardando Atendimento Habitacional \u2014 por Regional',font:{size:13,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}}));
+      data:{labels:rs.map(r=>r[0]),datasets:[{data:rs.map(r=>r[1]),backgroundColor:colors.slice(0,rs.length),borderWidth:3,borderColor:'#fff'}]},
+      options:{responsive:true,plugins:{title:{display:true,text:'Fam\u00edlias Aguardando Atendimento por Regional',font:{size:15,weight:'700',family:'Inter'},color:'#0f172a'},legend:{position:'bottom',labels:{font:{size:12,family:'Inter'},padding:16,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}}));
   } else { document.getElementById('main-charts-wrap').innerHTML=''; }
+}
+
+// Drill-down dos cards do dashboard
+function drillDown(id){
+  const dem=S.demanda?S.demanda.records:[];
+  const ppe=S.ppe?S.ppe.emps:[];
+  let title='',rows=[],headers=[];
+
+  if(id==='dem-total'){title='Demanda Fechada \u2014 Todos os Cadastros';headers=['Regional','Programa','Empreendimento','Espa\u00e7o Habitado','Subprefeitura','Distrito'];rows=dem.map(r=>[r.regional,r.programa,r.empreendimento,r.espaco,r.subpref,r.distrito]);}
+  else if(id==='dem-mulher'){title='Mulher Respons\u00e1vel';headers=['Regional','Programa','Empreendimento','Subprefeitura'];rows=dem.filter(r=>r.mulher).map(r=>[r.regional,r.programa,r.empreendimento,r.subpref]);}
+  else if(id==='dem-idoso'){title='Idoso';headers=['Regional','Programa','Empreendimento','Subprefeitura'];rows=dem.filter(r=>r.idoso).map(r=>[r.regional,r.programa,r.empreendimento,r.subpref]);}
+  else if(id==='dem-pcd'){title='PCD';headers=['Regional','Programa','Empreendimento','Subprefeitura'];rows=dem.filter(r=>r.pcd).map(r=>[r.regional,r.programa,r.empreendimento,r.subpref]);}
+  else if(id==='dem-infancia'){title='1\u00aa Inf\u00e2ncia';headers=['Regional','Programa','Empreendimento','Subprefeitura'];rows=dem.filter(r=>r.infancia).map(r=>[r.regional,r.programa,r.empreendimento,r.subpref]);}
+  else if(id==='dem-integ5'){title='5+ Integrantes';headers=['Regional','Programa','Empreendimento','Subprefeitura'];rows=dem.filter(r=>r.integ5).map(r=>[r.regional,r.programa,r.empreendimento,r.subpref]);}
+  else if(id.startsWith('uh-')){selectProg('ppe');return;}
+
+  if(!rows.length)return;
+  window._drillRows=rows;window._drillHeaders=headers;window._drillTitle=title;
+
+  const panel=document.getElementById('main-drill');
+  const shown=rows.slice(0,200);
+  panel.innerHTML=`<div class="kpi-detail-panel active">
+    <button class="close-btn" onclick="this.parentElement.parentElement.innerHTML=''">\u2715</button>
+    <h3>${title} \u2014 ${fmt(rows.length)} registros</h3>
+    <div style="margin:16px 0;display:flex;justify-content:flex-end">
+      <button class="btn" onclick="exportDrill()">Exportar Excel</button>
+    </div>
+    <div class="dev-records"><table>
+      <thead><tr>${headers.map(h=>'<th>'+h+'</th>').join('')}</tr></thead>
+      <tbody>${shown.map(r=>'<tr>'+r.map(v=>'<td>'+(v||'\u2014')+'</td>').join('')+'</tr>').join('')}
+      ${rows.length>200?'<tr><td colspan="'+headers.length+'" style="text-align:center;color:var(--ink3);padding:16px">Exporte para ver todos os '+fmt(rows.length)+' registros.</td></tr>':''}
+      </tbody></table></div>
+  </div>`;
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function exportDrill(){
+  const ws=XLSX.utils.aoa_to_sheet([window._drillHeaders,...window._drillRows]);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Dados');
+  XLSX.writeFile(wb,(window._drillTitle||'dados').replace(/[^a-zA-Z0-9]/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.xlsx');
 }
 
 // ============================================================
