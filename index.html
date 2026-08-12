@@ -225,10 +225,19 @@ main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
 </header>
 
 <main>
+  <!-- PAINEL PRINCIPAL -->
+  <div id="main-dashboard" class="hidden">
+    <div class="prog-desc">
+      <strong>Painel de Gestão — Coordenadoria de Trabalho Social</strong> — Indicadores consolidados da demanda habitacional e dos atendimentos em andamento pela Secretaria Municipal de Habitação.
+    </div>
+    <div class="kpi-row" id="main-kpis" style="margin-bottom:16px"></div>
+    <div id="main-charts-wrap" style="margin-bottom:24px"></div>
+  </div>
+
   <!-- PROGRAM NAV -->
   <nav class="program-nav" id="prog-nav">
     <button class="prog-btn" data-prog="ppe" onclick="selectProg('ppe')">
-      <div class="prog-top"><div class="prog-icon ppe">🏠</div><div class="prog-info"><h3>Unidade Habitacional</h3><p>Empreendimentos, dossiês e contratos</p></div></div>
+      <div class="prog-top"><div class="prog-icon ppe">🏠</div><div class="prog-info"><h3>Unidade Habitacional</h3><p>Empreendimentos, dossiês e contratos em andamento</p></div></div>
       <span class="prog-status on" id="status-ppe">Ativo</span>
     </button>
     <button class="prog-btn" data-prog="auxilio" onclick="selectProg('auxilio')">
@@ -348,6 +357,7 @@ const S = {
   auxilio: { loaded: false, data: null },
   emergencial: { loaded: false, data: null },
   indenizacao: { loaded: false, data: null },
+  demanda: { loaded: false, records: [] },
   historico: { loaded: false, data: null },
   view: { dts: '', emp: '', programa: '' }
 };
@@ -1378,6 +1388,86 @@ function exportIndenizacao(){
   XLSX.writeFile(wb,`indenizacao_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
+
+// ============================================================
+// DEMANDA FECHADA + DASHBOARD PRINCIPAL
+// ============================================================
+function parseDemanda(wb){
+  const sn=wb.SheetNames.find(n=>n.toLowerCase().includes('consolida'))||wb.SheetNames[0];
+  if(!sn)return;
+  const raw=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null});
+  if(raw.length<2)return;
+  const hRow=raw[0];const col={};
+  hRow.forEach((v,i)=>{if(v){col[String(v).replace(/\n/g,' ').trim()]=i;}});
+  const fc=(...ns)=>{for(const n of ns){for(const[k,v] of Object.entries(col)){if(k.toLowerCase().includes(n.toLowerCase()))return v;}}return -1;};
+  const cReg=fc('Regional');const cProg=fc('Prog. Habitacional','Prog.');
+  const cMul=fc('Mulher Resp');const cPCD=fc('PCD');const cInt=fc('5 ou +');
+  const cInf=fc('Inf\u00e2ncia');const cIdo=fc('Idoso');const cEsp=fc('Espa\u00e7o habitado');
+  const cSub=fc('Subprefeitura');const cDis=fc('Distrito');const cEmp=fc('Empreendimento');
+  const cSta=fc('STATUS FEV','STATUS');const cInd=fc('Quem indicou');
+  const records=[];
+  for(let i=1;i<raw.length;i++){
+    const r=raw[i];if(!r||!r[0])continue;
+    const g=(c)=>c>=0&&r.length>c?r[c]:null;
+    records.push({regional:String(g(cReg)||'').toUpperCase().trim(),programa:String(g(cProg)||'').trim(),
+      mulher:String(g(cMul)||'')==='Sim',pcd:String(g(cPCD)||'')==='Sim',
+      integ5:String(g(cInt)||'')==='Sim',infancia:String(g(cInf)||'')==='Sim',
+      idoso:String(g(cIdo)||'')==='Sim',espaco:String(g(cEsp)||'').trim(),
+      subpref:String(g(cSub)||'').trim(),distrito:String(g(cDis)||'').trim(),
+      empreendimento:String(g(cEmp)||'').trim(),status:String(g(cSta)||'').trim(),
+      indicou:String(g(cInd)||'').trim()});
+  }
+  S.demanda={records,loaded:true};
+}
+
+function renderMainDashboard(){
+  const dem=S.demanda&&S.demanda.loaded?S.demanda.records:[];
+  const ppe=S.ppe&&S.ppe.loaded?S.ppe.emps:[];
+  if(dem.length===0&&ppe.length===0){document.getElementById('main-dashboard').classList.add('hidden');return;}
+  document.getElementById('main-dashboard').classList.remove('hidden');
+  const td=dem.length;
+  const mc=dem.filter(r=>r.mulher).length;const pc=dem.filter(r=>r.pcd).length;
+  const ic=dem.filter(r=>r.idoso).length;const fc=dem.filter(r=>r.infancia).length;
+  const i5=dem.filter(r=>r.integ5).length;
+  const tUH=ppe.reduce((s,e)=>s+(e.uhTotal||0),0);
+  const tCo=ppe.reduce((s,e)=>s+(e.contrato||0),0);
+  const tAp=ppe.reduce((s,e)=>s+(e.aprov||0),0);
+  const kpis=[];
+  if(td>0){
+    kpis.push({l:'Demanda Fechada',v:fmt(td),d:'Fam\u00edlias aguardando UH',c:''});
+    kpis.push({l:'Mulher Respons\u00e1vel',v:fmt(mc)+' - '+pct(mc/td,1),d:'',c:'success'});
+    kpis.push({l:'Idoso',v:fmt(ic)+' - '+pct(ic/td,1),d:'',c:''});
+    kpis.push({l:'PCD',v:fmt(pc)+' - '+pct(pc/td,1),d:'',c:'warn'});
+    kpis.push({l:'1\u00aa Inf\u00e2ncia',v:fmt(fc)+' - '+pct(fc/td,1),d:'',c:''});
+    kpis.push({l:'5+ Integrantes',v:fmt(i5)+' - '+pct(i5/td,1),d:'',c:''});
+  }
+  if(ppe.length>0){
+    kpis.push({l:'Empreendimentos',v:fmt(ppe.length),d:'Em andamento',c:''});
+    kpis.push({l:'UHs em Andamento',v:fmt(tUH),d:'Unidades habitacionais',c:''});
+    kpis.push({l:'Contratos Assinados',v:fmt(tCo),d:tUH?pct(tCo/tUH,1)+' do total':'',c:'success'});
+  }
+  document.getElementById('main-kpis').innerHTML=kpis.map(k=>
+    '<div class="kpi '+k.c+'"><div class="k-label">'+k.l+'</div><div class="k-value" style="font-size:'+(k.v.length>15?'18':'26')+'px">'+k.v+'</div><div class="k-detail">'+k.d+'</div></div>'
+  ).join('');
+  if(window._mainCharts){window._mainCharts.forEach(c=>c.destroy());}
+  window._mainCharts=[];
+  const teal='#009999',green='#1B7A3D',gold='#C9A227';
+  const colors=[teal,green,gold,'#2B6CB0','#6B46C1','#C05621','#CC3333','#5BADA7'];
+  if(td>0){
+    document.getElementById('main-charts-wrap').innerHTML='<div class="charts-row"><div class="chart-box"><canvas id="main-ch-perfil"></canvas></div><div class="chart-box"><canvas id="main-ch-reg"></canvas></div></div>';
+    const perfil=[{l:'Mulher Resp.',v:mc,c:teal},{l:'Idoso',v:ic,c:green},{l:'5+ Integ.',v:i5,c:gold},{l:'1\u00aa Inf\u00e2ncia',v:fc,c:'#2B6CB0'},{l:'PCD',v:pc,c:'#6B46C1'}];
+    window._mainCharts.push(new Chart(document.getElementById('main-ch-perfil'),{type:'bar',
+      data:{labels:perfil.map(p=>p.l),datasets:[{data:perfil.map(p=>p.v),backgroundColor:perfil.map(p=>p.c),borderRadius:4}]},
+      options:{responsive:true,plugins:{title:{display:true,text:'Perfil Demogr\u00e1fico \u2014 Demanda Fechada',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{display:false}},
+        scales:{y:{grid:{display:false},ticks:{font:{size:11,family:'Arial'}}},x:{grid:{display:false},ticks:{font:{size:10,family:'Arial'}}}}}}));
+    const rc={};dem.forEach(r=>{if(r.regional)rc[r.regional]=(rc[r.regional]||0)+1;});
+    const rs=Object.entries(rc).sort((a,b)=>b[1]-a[1]);
+    window._mainCharts.push(new Chart(document.getElementById('main-ch-reg'),{type:'doughnut',
+      data:{labels:rs.map(r=>r[0]),datasets:[{data:rs.map(r=>r[1]),backgroundColor:colors.slice(0,rs.length),borderWidth:2,borderColor:'#fff'}]},
+      options:{responsive:true,plugins:{title:{display:true,text:'Demanda por Regional',font:{size:14,weight:'bold',family:'Arial'},color:'#1A1A1A'},legend:{position:'bottom',labels:{font:{size:11,family:'Arial'},padding:12,usePointStyle:true,pointStyle:'rect',pointStyleWidth:10}}}}}));
+  } else { document.getElementById('main-charts-wrap').innerHTML=''; }
+}
+
 // ============================================================
 // AUTO LOAD
 // ============================================================
@@ -1464,6 +1554,7 @@ async function autoLoad(){
     if(statusInd){statusInd.className='prog-status off';statusInd.textContent='Em breve';}
   }
 
+  renderMainDashboard();
   selectProg('ppe');
 }
 autoLoad();
